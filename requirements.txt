@@ -15,8 +15,6 @@ python-docx>=1.1.0
 python-jobspy>=1.1.82
 pandas>=2.0.0
 
-# Optional Apify SDK (can also use direct HTTP requests)
-apify-client>=1.6.0
 
 # Optional Google Drive Client
 google-api-python-client>=2.118.0

@@ -47,9 +47,9 @@ def run_job_hunt_pipeline(dry_run: bool = False):
     skills_count = len(profile.get("skills", []))
     print(f"      Extracted {skills_count} skills, {len(profile.get('target_roles', []))} target roles.")
 
-    # 2. Fetch Jobs from Apify + Free Direct Sources
-    print("\n[2/6] 🔍 Aggregating Job Opportunities (Apify & Free Tech Boards)...")
-    scraper = JobScraperAggregator(apify_token=config.apify_api_token)
+    # 2. Fetch Jobs from Open-Source Multi-Board Engine & Tech Feeds
+    print("\n[2/6] 🔍 Aggregating Job Opportunities (Open-Source JobSpy & Tech Boards)...")
+    scraper = JobScraperAggregator()
     raw_jobs = scraper.fetch_all(
         target_roles=profile.get("target_roles", ["Software Engineer", "AI Engineer"]),
         locations=config.locations

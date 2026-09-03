@@ -34,7 +34,6 @@ jobs:
 
       - name: Run Daily Job Hunter Pipeline
         env:
-          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
           RESUME_PATH: ${{ secrets.RESUME_PATH || 'resume/sample_resume.md' }}
           EMAIL_ENABLED: ${{ secrets.EMAIL_ENABLED || 'true' }}
           SMTP_SERVER: ${{ secrets.SMTP_SERVER || 'smtp-relay.brevo.com' }}
