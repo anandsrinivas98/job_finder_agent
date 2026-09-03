@@ -4,7 +4,7 @@ import requests
 from typing import List, Dict, Any, Optional
 
 class JobMatcher:
-    """Matches and scores job listings against candidate resume profile with optional Free LLM enhancements."""
+    """Matches and scores job listings against candidate resume profile with high precision and optional LLM semantic boosts."""
 
     def __init__(self, profile: Dict[str, Any], min_match_score: float = 70.0,
                  gemini_api_key: str = "", groq_api_key: str = "", llm_provider: str = "gemini"):
@@ -18,17 +18,17 @@ class JobMatcher:
         self.resume_text = profile.get("raw_text", "").lower()
 
     def evaluate_job(self, job: Dict[str, Any]) -> Dict[str, Any]:
-        """Calculates 0-100% score, assigns category, and tags."""
+        """Calculates exact 0-100% score, assigns category, and tags."""
         job_copy = dict(job)
-        title = job.get("title", "").lower()
-        desc = job.get("description", "").lower()
-        loc = job.get("location", "").lower()
-        work_mode = job.get("work_mode", "").lower()
-        exp_str = job.get("experience", "").lower()
+        title = str(job.get("title", "")).lower()
+        desc = str(job.get("description", "")).lower()
+        loc = str(job.get("location", "")).lower()
+        work_mode = str(job.get("work_mode", "")).lower()
+        exp_str = str(job.get("experience", "")).lower()
 
-        # 1. Experience Eligibility Filter (Skip > 3 yrs)
-        if any(senior in title for senior in ["senior", "lead", "principal", "staff", "architect", "director", "head of", "manager"]):
-            job_copy["match_score"] = 30.0
+        # 1. Experience Eligibility Filter (Disqualify >3 yrs or Senior/Staff/Lead)
+        if any(senior in title for senior in ["senior", "lead", "principal", "staff", "architect", "director", "head of", "manager", "tech lead"]):
+            job_copy["match_score"] = 25.0
             return job_copy
 
         # 2. Category Classification
@@ -45,33 +45,34 @@ class JobMatcher:
         job_copy["is_remote"] = is_remote
         job_copy["is_internship"] = is_intern
 
-        # 4. Multi-factor Scoring (0 - 100)
-        score = 50.0  # Base starting score
+        # 4. Multi-factor High Accuracy Scoring (0 - 100)
+        score = 45.0  # Base starting baseline
 
-        # Role & Title Alignment (+15)
-        if any(r in title for r in ["software", "developer", "engineer", "sde", "ai", "ml", "qa", "analyst", "python"]):
-            score += 15.0
+        # Target Role & Title Alignment (+20)
+        primary_targets = ["python", "ai", "full stack", "software engineer", "developer", "backend", "sde", "fresher", "machine learning", "genai", "fastapi"]
+        if any(target in title for target in primary_targets):
+            score += 20.0
 
-        # Skill & Tech Stack Overlap (+20)
+        # Technical Skill & Tech Stack Overlap (+25)
         matched_skills = []
         for skill in self.resume_skills:
             if re.search(r'\b' + re.escape(skill) + r'\b', f"{title} {desc}"):
                 matched_skills.append(skill)
 
         if matched_skills:
-            score += min(20.0, len(matched_skills) * 3.5)
+            score += min(25.0, len(matched_skills) * 4.0)
 
-        # Fresher / Entry Level bonus (+10)
-        if is_intern or any(f in f"{title} {exp_str} {desc}" for f in ["fresher", "0-1", "0-2", "entry level", "junior", "graduate", "trainee", "associate"]):
+        # Fresher / Entry Level / 0-2 Years Bonus (+15)
+        if is_intern or any(f in f"{title} {exp_str} {desc}" for f in ["fresher", "0-1", "0-2", "entry level", "junior", "graduate", "trainee", "associate", "get"]):
+            score += 15.0
+
+        # Preferred Location Bonus (Bengaluru / India / Remote) (+10)
+        if "bengaluru" in loc or "bangalore" in loc or is_remote or "india" in loc:
             score += 10.0
 
-        # Location Bonus (+5)
-        if "india" in loc or any(city in loc for city in ["bengaluru", "bangalore", "hyderabad", "pune", "chennai", "delhi", "gurgaon", "noida", "mumbai", "remote"]):
-            score += 5.0
-
-        # Penalize if explicit high experience is mentioned
-        if re.search(r'\b(4|5|6|7|8|10)\+?\s*(?:years|yrs)\b', desc):
-            score -= 25.0
+        # Penalty for high experience requirements
+        if re.search(r'\b(3\+|4|5|6|7|8|10)\+?\s*(?:years|yrs)\b', desc):
+            score -= 30.0
 
         final_score = round(max(0.0, min(99.0, score)), 1)
         job_copy["match_score"] = final_score
@@ -94,15 +95,15 @@ class JobMatcher:
         else:
             return "Software / Development"
 
-    def filter_and_rank(self, jobs: List[Dict[str, Any]], target_count: int = 25) -> List[Dict[str, Any]]:
+    def filter_and_rank(self, jobs: List[Dict[str, Any]], target_count: int = 50) -> List[Dict[str, Any]]:
         """Evaluates, filters, and ranks jobs by score and freshness."""
         evaluated = [self.evaluate_job(j) for j in jobs]
 
         # Filter: match score >= min_match_score
         qualified = [j for j in evaluated if j.get("match_score", 0.0) >= self.min_match_score]
 
-        # If too few meet strict min score, gracefully take the best available above 60%
-        if len(qualified) < 10:
+        # If too few meet strict min score, gracefully include best available above 60%
+        if len(qualified) < 15:
             qualified = [j for j in evaluated if j.get("match_score", 0.0) >= 60.0]
 
         # Rank by Match Score (Desc)
