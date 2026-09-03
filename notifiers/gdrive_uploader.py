@@ -46,24 +46,47 @@ class GDriveUploader:
 
             oauth_cred_path = Path("config/gdrive_oauth_credentials.json")
             token_path = Path("config/token.json")
+            env_token = os.getenv("GDRIVE_TOKEN_JSON", "").strip()
 
-            # Try OAuth2 User Flow (No quota restrictions on personal Gmail accounts)
+            # 1. Try OAuth2 User Flow from Token File
             if token_path.exists():
-                creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
-            elif oauth_cred_path.exists():
-                flow = InstalledAppFlow.from_client_secrets_file(str(oauth_cred_path), SCOPES)
-                creds = flow.run_local_server(port=0)
-                with open(token_path, "w") as token_file:
-                    token_file.write(creds.to_json())
+                try:
+                    creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+                except Exception as e:
+                    print(f"[⚠️ GDrive] Failed reading config/token.json: {e}")
 
-            # Fallback to Service Account
+            # 2. Try OAuth2 User Flow directly from Environment Variable JSON string
+            if not creds and env_token:
+                try:
+                    import json
+                    token_dict = json.loads(env_token)
+                    creds = Credentials.from_authorized_user_info(token_dict, SCOPES)
+                    print("[☁️ GDrive] Loaded Google Drive OAuth2 credentials from GDRIVE_TOKEN_JSON environment variable.")
+                except Exception as e:
+                    print(f"[⚠️ GDrive] Failed parsing GDRIVE_TOKEN_JSON env var: {e}")
+
+            # 3. Interactive Local OAuth2 Flow
+            elif not creds and oauth_cred_path.exists():
+                try:
+                    flow = InstalledAppFlow.from_client_secrets_file(str(oauth_cred_path), SCOPES)
+                    creds = flow.run_local_server(port=0)
+                    with open(token_path, "w") as token_file:
+                        token_file.write(creds.to_json())
+                except Exception as e:
+                    print(f"[⚠️ GDrive] OAuth flow notice: {e}")
+
+            # 4. Fallback to Service Account
             if not creds and self.service_account_path and self.service_account_path.exists():
-                creds = service_account.Credentials.from_service_account_file(
-                    str(self.service_account_path), scopes=SCOPES
-                )
+                try:
+                    creds = service_account.Credentials.from_service_account_file(
+                        str(self.service_account_path), scopes=SCOPES
+                    )
+                except Exception as e:
+                    print(f"[⚠️ GDrive] Service account notice: {e}")
 
             if not creds:
-                print("[⚠️ GDrive] No valid Google Drive credentials or token found in config/.")
+                print("[⚠️ GDrive] No valid Google Drive credentials or token found. Upload skipped.")
+                print("💡 To enable cloud upload in GitHub Actions, add your GDRIVE_TOKEN_JSON secret.")
                 return None
 
             if hasattr(creds, "expired") and creds.expired and hasattr(creds, "refresh_token") and creds.refresh_token:
@@ -81,14 +104,40 @@ class GDriveUploader:
                 resumable=True
             )
 
-            file = service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id, webViewLink',
-                supportsAllDrives=True
-            ).execute()
+            try:
+                file = service.files().create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields='id, webViewLink, webContentLink',
+                    supportsAllDrives=True
+                ).execute()
+            except Exception as e:
+                # If specific folder upload fails, retry upload to root Drive
+                if self.folder_id and "notFound" in str(e) or "access" in str(e).lower():
+                    print(f"[⚠️ GDrive] Target folder ID error. Retrying upload to root Drive...")
+                    file_metadata.pop('parents', None)
+                    file = service.files().create(
+                        body=file_metadata,
+                        media_body=media,
+                        fields='id, webViewLink, webContentLink',
+                        supportsAllDrives=True
+                    ).execute()
+                else:
+                    raise e
 
-            link = file.get('webViewLink')
+            file_id = file.get('id')
+
+            # Ensure public view access so anyone with the link can open the report
+            try:
+                service.permissions().create(
+                    fileId=file_id,
+                    body={'type': 'anyone', 'role': 'reader'},
+                    supportsAllDrives=True
+                ).execute()
+            except Exception:
+                pass
+
+            link = f"https://docs.google.com/spreadsheets/d/{file_id}/edit?usp=sharing"
             print(f"[☁️ Google Drive] Uploaded successfully to Cloud Drive! Link: {link}")
             return link
 
