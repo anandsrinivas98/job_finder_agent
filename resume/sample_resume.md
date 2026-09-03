@@ -1,9 +1,10 @@
 # Candidate Profile & Resume (Source of Truth)
 
 ## Personal Information
-- **Name:** Anand Sharma
-- **Target Roles:** AI Engineer, GenAI Developer, Python Backend Developer, SDE-1, QA Automation Engineer, Data/Technical Analyst
-- **Preferred Locations:** Bengaluru, Hyderabad, Chennai, Pune, Remote (India)
+- **Name:** Srinivas A
+- **Contact:** anandsrinivas98@gmail.com
+- **Target Roles:** Python Developer, Full Stack Developer, AI Engineer, Software Engineer Fresher, SDE-1
+- **Preferred Locations:** Bengaluru, Remote (India)
 - **Target Experience Level:** Fresher / 0–2 Years
 
 ---
