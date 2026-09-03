@@ -71,9 +71,9 @@ def run_job_hunt_pipeline(dry_run: bool = False):
     ranked_jobs = matcher.filter_and_rank(raw_jobs, target_count=config.target_daily_jobs)
     print(f"      Selected {len(ranked_jobs)} top qualified opportunities.")
 
-    # 4. Deduplicate and Update Database History
-    print("\n[4/6] 💾 Updating SQLite History & Classifying (NEW, UPDATED, STILL OPEN)...")
-    db = JobHistoryDB(config.db_path)
+    # 4. Deduplicate and Update Database History (SQLite / Cloud PostgreSQL)
+    print("\n[4/6] 💾 Updating Job History & Classifying (NEW, UPDATED, STILL OPEN)...")
+    db = JobHistoryDB(db_path=config.db_path, database_url=config.database_url)
     final_jobs = []
     for job in ranked_jobs:
         enriched_job = db.upsert_and_classify_job(job)
@@ -166,9 +166,11 @@ def run_job_hunt_pipeline(dry_run: bool = False):
                 twilio_sid=config.twilio_sid,
                 twilio_token=config.twilio_token,
                 twilio_from=config.twilio_from,
-                twilio_to=config.twilio_to
+                twilio_to=config.twilio_to,
+                green_instance_id=config.green_instance_id,
+                green_api_token=config.green_api_token
             )
-            wa_notifier.send_summary(notification_msg)
+            wa_notifier.send_summary(notification_msg, excel_path)
 
         # Telegram Notification (Instant Mobile + Excel File)
         if config.telegram_enabled:

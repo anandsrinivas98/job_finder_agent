@@ -36,8 +36,9 @@ def test_excel_formula_injection_defense(tmp_path):
     title_val = ws.cell(row=2, column=3).value
     apply_link_val = ws.cell(row=2, column=12).value
     apply_hyperlink = ws.cell(row=2, column=12).hyperlink
-    recruiter_val = ws.cell(row=2, column=13).value
-    website_hyperlink = ws.cell(row=2, column=14).hyperlink
+    referral_val = ws.cell(row=2, column=13).value
+    recruiter_val = ws.cell(row=2, column=14).value
+    website_hyperlink = ws.cell(row=2, column=15).hyperlink
 
     # Verify formula injection triggers are escaped
     assert company_val.startswith("'=")
@@ -47,6 +48,7 @@ def test_excel_formula_injection_defense(tmp_path):
     assert apply_hyperlink is None
     assert apply_link_val == "N/A"
     assert recruiter_val == "N/A"
+    assert referral_val == "Ask Referral ↗"
 
     # Verify safe https link is preserved
     assert website_hyperlink is not None

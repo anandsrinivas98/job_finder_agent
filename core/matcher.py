@@ -36,8 +36,12 @@ class JobMatcher:
         job_copy["category"] = category
 
         # 3. Flags
+        job_type_val = job.get("job_type", "")
+        job_type_str = ", ".join(job_type_val) if isinstance(job_type_val, list) else str(job_type_val)
+        job_copy["job_type"] = job_type_str
+
         is_remote = "remote" in work_mode or "remote" in loc or "anywhere" in loc or "work from home" in desc or "wfh" in desc
-        is_intern = "intern" in title or "trainee" in title or "internship" in job.get("job_type", "").lower()
+        is_intern = "intern" in title or "trainee" in title or "internship" in job_type_str.lower()
         job_copy["is_remote"] = is_remote
         job_copy["is_internship"] = is_intern
 

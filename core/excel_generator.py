@@ -1,4 +1,5 @@
 import os
+import urllib.parse
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
@@ -39,8 +40,9 @@ class ExcelReportGenerator:
             ("Experience", 18),
             ("Salary", 18),
             ("Job Type", 14),
-            ("Source", 16),
-            ("Apply Link", 20),
+            ("Source", 18),
+            ("Apply Link", 18),
+            ("Find Referral (LinkedIn)", 24),
             ("Recruiter LinkedIn", 20),
             ("Company Website", 20),
             ("Status", 14)
@@ -119,10 +121,15 @@ class ExcelReportGenerator:
         for idx, job in enumerate(job_list, start=1):
             status = job.get("status", "NEW")
             status_badge = f"🆕 {status}" if status == "NEW" else (f"🔄 {status}" if status == "UPDATED" else f"⏳ {status}")
+            company_name = job.get("company", "N/A")
+
+            # Dynamic LinkedIn employee search URL for finding alumni & referral connections
+            clean_comp_encoded = urllib.parse.quote(company_name.replace("'", "").replace('"', ''))
+            referral_url = f"https://www.linkedin.com/search/results/people/?keywords={clean_comp_encoded}%20Software%20Engineer"
 
             raw_row = [
                 idx,
-                job.get("company", "N/A"),
+                company_name,
                 job.get("title", "N/A"),
                 job.get("location", "India"),
                 job.get("work_mode", "N/A"),
@@ -133,6 +140,7 @@ class ExcelReportGenerator:
                 job.get("job_type", "Full-time"),
                 job.get("source", "N/A"),
                 "Apply Here",
+                "Find Referral ↗",
                 "View Recruiter" if job.get("recruiter_linkedin") not in ["N/A", "", None] else "N/A",
                 "Company Site" if job.get("company_website") not in ["N/A", "", None] else "N/A",
                 status_badge
@@ -147,7 +155,7 @@ class ExcelReportGenerator:
                 cell = ws.cell(row=row_idx, column=col_idx)
                 cell.font = self.regular_font
                 cell.border = self.border_thin
-                cell.alignment = Alignment(horizontal="center" if col_idx in [1, 5, 6, 7, 10, 15] else "left", vertical="center")
+                cell.alignment = Alignment(horizontal="center" if col_idx in [1, 5, 6, 7, 10, 16] else "left", vertical="center")
 
                 # Format Match % with highlight
                 if col_idx == 7:
@@ -158,7 +166,7 @@ class ExcelReportGenerator:
                     elif score >= 70:
                         cell.fill = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid") # light yellow
 
-                # Apply Link Hyperlink
+                # Apply Link Hyperlink (Col 12)
                 if col_idx == 12:
                     url = job.get("job_url", "")
                     if self._is_safe_url(url):
@@ -168,8 +176,14 @@ class ExcelReportGenerator:
                     else:
                         cell.value = "N/A"
 
-                # Recruiter LinkedIn Hyperlink
+                # Find Referral LinkedIn Link (Col 13)
                 if col_idx == 13:
+                    cell.value = "Ask Referral ↗"
+                    cell.hyperlink = referral_url
+                    cell.font = self.link_font
+
+                # Recruiter LinkedIn Hyperlink (Col 14)
+                if col_idx == 14:
                     rec_url = job.get("recruiter_linkedin", "")
                     if self._is_safe_url(rec_url):
                         cell.value = "Recruiter ↗"
@@ -178,8 +192,8 @@ class ExcelReportGenerator:
                     else:
                         cell.value = "N/A"
 
-                # Company Website Hyperlink
-                if col_idx == 14:
+                # Company Website Hyperlink (Col 15)
+                if col_idx == 15:
                     comp_url = job.get("company_website", "")
                     if self._is_safe_url(comp_url):
                         cell.value = "Website ↗"

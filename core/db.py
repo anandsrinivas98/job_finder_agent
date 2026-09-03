@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import hashlib
 from pathlib import Path
@@ -5,56 +6,102 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 class JobHistoryDB:
-    """Persistent SQLite database for job deduplication and state tracking."""
+    """Hybrid Database for job deduplication and state tracking.
+    Supports both Local SQLite (default) and Cloud PostgreSQL / Supabase (via DATABASE_URL).
+    """
 
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, database_url: str = ""):
         self.db_path = Path(db_path)
+        self.database_url = (database_url or os.getenv("DATABASE_URL", "")).strip()
+        self.is_postgres = self.database_url.startswith(("postgresql://", "postgres://"))
         self._init_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
+    def _get_connection(self):
+        """Returns connection object for SQLite or PostgreSQL."""
+        if self.is_postgres:
+            try:
+                import psycopg2
+                import psycopg2.extras
+                conn = psycopg2.connect(self.database_url, cursor_factory=psycopg2.extras.RealDictCursor)
+                return conn
+            except ImportError:
+                print("[⚠️ DB Warning] psycopg2 not installed. Falling back to local SQLite. (Run: pip install psycopg2-binary)")
+                self.is_postgres = False
+
         conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
         return conn
 
     def _init_db(self):
         """Initializes the database schema."""
-        with self._get_connection() as conn:
+        conn = self._get_connection()
+        try:
             cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS jobs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    job_hash TEXT UNIQUE NOT NULL,
-                    company TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    location TEXT,
-                    work_mode TEXT,
-                    posted_date TEXT,
-                    salary TEXT,
-                    experience TEXT,
-                    job_type TEXT,
-                    job_url TEXT,
-                    source TEXT,
-                    recruiter_name TEXT,
-                    recruiter_linkedin TEXT,
-                    company_website TEXT,
-                    match_score REAL,
-                    category TEXT,
-                    status TEXT DEFAULT 'NEW',
-                    first_seen TEXT NOT NULL,
-                    last_seen TEXT NOT NULL,
-                    run_count INTEGER DEFAULT 1
-                )
-            """)
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_job_hash ON jobs(job_hash)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON jobs(status)")
+            if self.is_postgres:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS jobs (
+                        id SERIAL PRIMARY KEY,
+                        job_hash VARCHAR(64) UNIQUE NOT NULL,
+                        company TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        location TEXT,
+                        work_mode TEXT,
+                        posted_date TEXT,
+                        salary TEXT,
+                        experience TEXT,
+                        job_type TEXT,
+                        job_url TEXT,
+                        source TEXT,
+                        recruiter_name TEXT,
+                        recruiter_linkedin TEXT,
+                        company_website TEXT,
+                        match_score REAL,
+                        category TEXT,
+                        status VARCHAR(32) DEFAULT 'NEW',
+                        first_seen TEXT NOT NULL,
+                        last_seen TEXT NOT NULL,
+                        run_count INTEGER DEFAULT 1
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_job_hash ON jobs(job_hash);
+                    CREATE INDEX IF NOT EXISTS idx_status ON jobs(status);
+                """)
+            else:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS jobs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        job_hash TEXT UNIQUE NOT NULL,
+                        company TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        location TEXT,
+                        work_mode TEXT,
+                        posted_date TEXT,
+                        salary TEXT,
+                        experience TEXT,
+                        job_type TEXT,
+                        job_url TEXT,
+                        source TEXT,
+                        recruiter_name TEXT,
+                        recruiter_linkedin TEXT,
+                        company_website TEXT,
+                        match_score REAL,
+                        category TEXT,
+                        status TEXT DEFAULT 'NEW',
+                        first_seen TEXT NOT NULL,
+                        last_seen TEXT NOT NULL,
+                        run_count INTEGER DEFAULT 1
+                    );
+                """)
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_job_hash ON jobs(job_hash);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON jobs(status);")
+
             conn.commit()
+        finally:
+            conn.close()
 
     def compute_job_hash(self, company: str, title: str, job_url: str) -> str:
         """Generates a stable signature for job deduplication."""
-        # Normalize fields
         clean_comp = company.strip().lower()
         clean_title = title.strip().lower()
-        # Fallback to URL if present
         clean_url = job_url.split("?")[0].strip().lower() if job_url else ""
         raw = f"{clean_comp}|{clean_title}|{clean_url}"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -73,22 +120,26 @@ class JobHistoryDB:
         )
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        with self._get_connection() as conn:
+        conn = self._get_connection()
+        try:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM jobs WHERE job_hash = ?", (job_hash,))
+            ph = "%s" if self.is_postgres else "?"
+
+            cursor.execute(f"SELECT * FROM jobs WHERE job_hash = {ph}", (job_hash,))
             existing = cursor.fetchone()
 
             if not existing:
                 # 🆕 Brand new job
                 status = "NEW"
-                cursor.execute("""
+                insert_sql = f"""
                     INSERT INTO jobs (
                         job_hash, company, title, location, work_mode, posted_date,
                         salary, experience, job_type, job_url, source, recruiter_name,
                         recruiter_linkedin, company_website, match_score, category,
                         status, first_seen, last_seen, run_count
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                """, (
+                    ) VALUES ({', '.join([ph]*20)})
+                """
+                cursor.execute(insert_sql, (
                     job_hash,
                     job.get("company", "N/A"),
                     job.get("title", "N/A"),
@@ -107,7 +158,8 @@ class JobHistoryDB:
                     job.get("category", "Software / Development"),
                     status,
                     now_str,
-                    now_str
+                    now_str,
+                    1
                 ))
             else:
                 # Existing job: check if updated or still open
@@ -120,16 +172,17 @@ class JobHistoryDB:
                 else:
                     status = "STILL OPEN"
 
-                cursor.execute("""
+                update_sql = f"""
                     UPDATE jobs SET
-                        last_seen = ?,
-                        run_count = ?,
-                        status = ?,
-                        match_score = ?,
-                        salary = CASE WHEN ? != 'N/A' THEN ? ELSE salary END,
-                        job_url = CASE WHEN ? != '' THEN ? ELSE job_url END
-                    WHERE job_hash = ?
-                """, (
+                        last_seen = {ph},
+                        run_count = {ph},
+                        status = {ph},
+                        match_score = {ph},
+                        salary = CASE WHEN {ph} != 'N/A' THEN {ph} ELSE salary END,
+                        job_url = CASE WHEN {ph} != '' THEN {ph} ELSE job_url END
+                    WHERE job_hash = {ph}
+                """
+                cursor.execute(update_sql, (
                     now_str,
                     run_count,
                     status,
@@ -142,8 +195,10 @@ class JobHistoryDB:
                 ))
 
             conn.commit()
+        finally:
+            conn.close()
 
-        # Update dict with DB metadata
+        # Return job with assigned DB status
         job_copy = dict(job)
         job_copy["status"] = status
         job_copy["job_hash"] = job_hash
@@ -151,7 +206,11 @@ class JobHistoryDB:
 
     def get_all_jobs_history(self) -> List[Dict[str, Any]]:
         """Returns all recorded jobs."""
-        with self._get_connection() as conn:
+        conn = self._get_connection()
+        try:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM jobs ORDER BY last_seen DESC")
-            return [dict(row) for row in cursor.fetchall()]
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()

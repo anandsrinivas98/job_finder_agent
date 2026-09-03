@@ -2,91 +2,236 @@ import os
 import time
 import requests
 import json
+import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 
 class JobScraperAggregator:
-    """Aggregates jobs from Apify Actors and Free Direct Sources (RemoteOK, Himalayas, Jobicy, etc.)."""
+    """Multi-source job aggregator querying:
+    - Apify Actors: Indeed, LinkedIn, Naukri, Google Jobs, Internshala, Wellfound
+    - Tech / Startup / Remote: YC Jobs, Himalayas, We Work Remotely, RemoteOK, Remotive, Jobicy, GitHub, Arbeitnow
+    - Direct discovery: Instahyre, Cutshort, Hirist, Unstop, Apna
+    """
 
     def __init__(self, apify_token: str = ""):
         self.apify_token = apify_token.strip()
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         })
 
     def fetch_all(self, target_roles: List[str], locations: List[str]) -> List[Dict[str, Any]]:
-        """Collects listings from Apify and free APIs."""
+        """Collects listings across ALL configured sources."""
         all_jobs: List[Dict[str, Any]] = []
 
-        # 1. Apify Search (if token provided)
+        # 1. Apify Search Engine (Indeed India, Google Jobs, LinkedIn, Naukri)
         if self.apify_token:
-            print("[🔍 JobScraper] Apify Token detected. Querying Apify Actors...")
+            print("[🔍 JobScraper] Apify Token active. Aggregating from Apify multi-board actors...")
             apify_jobs = self._fetch_apify_jobs(target_roles, locations)
-            print(f"[✅ JobScraper] Retrieved {len(apify_jobs)} jobs from Apify.")
+            print(f"[✅ JobScraper] Retrieved {len(apify_jobs)} jobs from Apify Actors.")
             all_jobs.extend(apify_jobs)
         else:
-            print("[ℹ️ JobScraper] No Apify token set. Utilizing Free Open Job Sources & APIs...")
+            print("[ℹ️ JobScraper] No Apify token set. Querying free open tech sources...")
 
-        # 2. Free Open Job Sources (Always active as baseline or enrichment)
-        free_jobs = self._fetch_free_sources(target_roles)
-        print(f"[✅ JobScraper] Retrieved {len(free_jobs)} jobs from Free Tech Job Boards.")
+        # 2. Remote Tech & Startup Boards (RemoteOK, Remotive, Jobicy, Himalayas, WeWorkRemotely, YC, Arbeitnow)
+        print("[🌐 JobScraper] Querying Tech & Startup boards (YC, Himalayas, WWR, RemoteOK, Remotive, Jobicy, GitHub)...")
+        free_jobs = self._fetch_tech_boards(target_roles)
+        print(f"[✅ JobScraper] Retrieved {len(free_jobs)} jobs from Tech & Startup job boards.")
         all_jobs.extend(free_jobs)
 
-        # 3. Deduplicate across sources before scoring
+        # 3. Deduplicate across all sources
         unique_jobs = self._deduplicate_raw(all_jobs)
-        print(f"[📊 JobScraper] Total unique aggregated listings: {len(unique_jobs)}")
+        print(f"[📊 JobScraper] Total unique aggregated listings across all boards: {len(unique_jobs)}")
         return unique_jobs
 
     def _fetch_apify_jobs(self, target_roles: List[str], locations: List[str]) -> List[Dict[str, Any]]:
-        """Queries Apify actors across LinkedIn, Indeed, Google Jobs, Naukri, Internshala."""
+        """Queries Apify actors for Indian job boards (Indeed, Google Jobs, LinkedIn, Naukri)."""
         jobs: List[Dict[str, Any]] = []
         if not self.apify_token:
             return jobs
 
-        # Search queries focused on candidate roles and locations
-        query_terms = [
-            "Python Developer Fresher India",
-            "AI ML Engineer Entry Level Bengaluru",
-            "Full Stack Developer 0-2 years Remote"
+        # Search queries covering candidate's core stack & fresher roles
+        queries = [
+            ("Python Developer", "Bengaluru"),
+            ("Full Stack Developer", "Bengaluru"),
+            ("AI Engineer", "India"),
+            ("Software Engineer Fresher", "India"),
+            ("FastAPI Backend Developer", "Remote"),
+            ("React Next.js Developer", "Bengaluru")
         ]
 
-        # Configured Apify Actors
-        actors = [
-            ("curious_coder~linkedin-post-search-scraper", "LinkedIn (Apify)", {"searchQueries": query_terms[:2], "maxPosts": 15}),
-            ("dan.scraper~google-jobs-scraper", "Google Jobs (Apify)", {"queries": query_terms[:2], "maxResults": 20}),
-            ("misceres~indeed-scraper", "Indeed (Apify)", {"position": "Software Engineer Fresher", "location": "India", "maxItems": 15})
-        ]
-
-        for actor_id, source_name, payload in actors:
+        # 1. Indeed Scraper via Apify
+        for role, loc in queries[:4]:
             try:
-                url = f"https://api.apify.com/v2/acts/{actor_id}/run-sync-get-dataset-items?token={self.apify_token}&timeout=60"
-                resp = self.session.post(url, json=payload, timeout=45)
+                url = f"https://api.apify.com/v2/acts/misceres~indeed-scraper/run-sync-get-dataset-items?token={self.apify_token}&timeout=60"
+                payload = {
+                    "position": role,
+                    "country": "IN",
+                    "location": loc,
+                    "maxItems": 10
+                }
+                resp = self.session.post(url, json=payload, timeout=50)
                 if resp.status_code in [200, 201]:
                     items = resp.json()
                     if isinstance(items, list):
                         for item in items:
-                            jobs.append(self._normalize_apify_item(item, source=source_name))
+                            if not item.get("error"):
+                                jobs.append(self._normalize_apify_item(item, source="Indeed (Apify)"))
             except Exception as e:
-                print(f"[⚠️ Apify] Actor {actor_id} notice: {e}")
+                print(f"[⚠️ Apify Indeed] Query '{role} ({loc})' notice: {e}")
+
+        # 2. Comprehensive Multi-Board Apify Search Engine
+        try:
+            url = f"https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items?token={self.apify_token}&timeout=60"
+            search_queries = "\n".join([
+                # Primary Indian Job Boards
+                'site:naukri.com/job-listings "Python Developer" "Bengaluru"',
+                'site:naukri.com/job-listings "Software Engineer" "Fresher" "Bengaluru"',
+                'site:naukri.com/job-listings "AI Engineer" OR "Machine Learning" "India"',
+                'site:linkedin.com/jobs "Python Developer" "Bengaluru" "Entry level"',
+                'site:internshala.com "Python" OR "AI" "Internship" "Bengaluru"',
+                'site:wellfound.com "Software Engineer" "India"',
+                'site:instahyre.com/job "Python" OR "Full Stack" "Bengaluru"',
+                'site:cutshort.io "Python" OR "Software Engineer" "Bengaluru"',
+                'site:hirist.tech "Python Developer" OR "FastAPI"',
+                'site:foundit.in/job "Software Developer" "Fresher" "Bengaluru"',
+                'site:glassdoor.co.in/job-listing "Python Developer" "Bengaluru"',
+                'site:shine.com/jobs "Software Engineer Fresher" "Bangalore"',
+                'site:timesjobs.com "Python Developer" "Bangalore"',
+                'site:freshersworld.com/jobs "Software Engineer" "Bangalore"',
+                'site:unstop.com/jobs "Software" OR "AI" "India"',
+                'site:apna.co/job "Software" OR "IT" "Bengaluru"',
+                'site:workindia.in/jobs "Software Developer" "Bengaluru"',
+                # Tech / Startups / Remote / YC / Portals
+                'site:workatastartup.com "Software Engineer" OR "Python"',
+                'site:hackerearth.com/challenges "Hiring" OR "Developer"',
+                'site:arc.dev "Python Developer" "Remote"',
+                'site:turing.com/jobs "Python" OR "Full Stack"',
+                'site:greenhouse.io OR site:lever.co "Python Developer" "India"',
+                'site:reddit.com/r/forhire OR site:reddit.com/r/jobbit "[Hiring] Python" OR "[Hiring] Developer"'
+            ])
+            resp = self.session.post(url, json={"queries": search_queries, "maxPagesPerQuery": 1}, timeout=55)
+            if resp.status_code in [200, 201]:
+                data = resp.json()
+                if isinstance(data, list):
+                    for page in data:
+                        for org in page.get("organicResults", []):
+                            title = org.get("title", "")
+                            link = org.get("url", "")
+                            desc = org.get("description", "")
+
+                            # Classify exact board source
+                            source_tag = "Job Board (Apify)"
+                            link_lower = link.lower()
+                            if "naukri.com" in link_lower:
+                                source_tag = "Naukri (Apify)"
+                            elif "linkedin.com" in link_lower:
+                                source_tag = "LinkedIn (Apify)"
+                            elif "internshala.com" in link_lower:
+                                source_tag = "Internshala (Apify)"
+                            elif "wellfound.com" in link_lower:
+                                source_tag = "Wellfound (Apify)"
+                            elif "instahyre.com" in link_lower:
+                                source_tag = "Instahyre (Apify)"
+                            elif "cutshort.io" in link_lower:
+                                source_tag = "Cutshort (Apify)"
+                            elif "hirist.tech" in link_lower:
+                                source_tag = "Hirist (Apify)"
+                            elif "foundit.in" in link_lower:
+                                source_tag = "Foundit (Apify)"
+                            elif "glassdoor" in link_lower:
+                                source_tag = "Glassdoor (Apify)"
+                            elif "shine.com" in link_lower:
+                                source_tag = "Shine (Apify)"
+                            elif "timesjobs.com" in link_lower:
+                                source_tag = "TimesJobs (Apify)"
+                            elif "freshersworld.com" in link_lower:
+                                source_tag = "Freshersworld (Apify)"
+                            elif "unstop.com" in link_lower:
+                                source_tag = "Unstop (Apify)"
+                            elif "apna.co" in link_lower:
+                                source_tag = "Apna (Apify)"
+                            elif "workindia.in" in link_lower:
+                                source_tag = "WorkIndia (Apify)"
+                            elif "workatastartup.com" in link_lower:
+                                source_tag = "YC Jobs (Apify)"
+                            elif "hackerearth.com" in link_lower:
+                                source_tag = "HackerEarth (Apify)"
+                            elif "arc.dev" in link_lower:
+                                source_tag = "Arc.dev (Apify)"
+                            elif "turing.com" in link_lower:
+                                source_tag = "Turing (Apify)"
+                            elif "greenhouse.io" in link_lower or "lever.co" in link_lower:
+                                source_tag = "Company Career Page (Apify)"
+                            elif "reddit.com" in link_lower:
+                                source_tag = "Reddit Hiring (Apify)"
+
+                            jobs.append({
+                                "company": self._extract_company_from_title(title),
+                                "title": title.split(" - ")[0] if " - " in title else title[:50],
+                                "location": "Bengaluru / India",
+                                "work_mode": "Hybrid / Remote",
+                                "posted_date": datetime.now().strftime("%Y-%m-%d"),
+                                "salary": "N/A",
+                                "experience": "Fresher / 0-2 yrs",
+                                "job_type": "Full-time",
+                                "job_url": link,
+                                "source": source_tag,
+                                "recruiter_name": "N/A",
+                                "recruiter_linkedin": "N/A",
+                                "company_website": "N/A",
+                                "description": desc
+                            })
+        except Exception as e:
+            print(f"[⚠️ Apify Web Search] {e}")
 
         return jobs
 
-    def _fetch_free_sources(self, target_roles: List[str]) -> List[Dict[str, Any]]:
-        """Fetches fresh listings from open tech job APIs (RemoteOK, Himalayas, Jobicy, Arbeitnow)."""
+    def _fetch_tech_boards(self, target_roles: List[str]) -> List[Dict[str, Any]]:
+        """Fetches from Free Tech & Startup endpoints."""
         jobs: List[Dict[str, Any]] = []
 
-        # Source 1: RemoteOK API
+        # Source 1: We Work Remotely RSS Feed
+        try:
+            url = "https://weworkremotely.com/categories/remote-programming-jobs.rss"
+            resp = self.session.get(url, timeout=15)
+            if resp.status_code == 200:
+                root = ET.fromstring(resp.content)
+                for item in root.findall(".//item")[:15]:
+                    title = item.findtext("title", "")
+                    link = item.findtext("link", "")
+                    pub_date = item.findtext("pubDate", "")[:16]
+                    desc = item.findtext("description", "")[:800]
+                    company = title.split(":")[0].strip() if ":" in title else "Tech Co"
+                    role_title = title.split(":")[1].strip() if ":" in title else title
+                    jobs.append({
+                        "company": company,
+                        "title": role_title,
+                        "location": "Remote (Worldwide / India)",
+                        "work_mode": "Remote",
+                        "posted_date": pub_date or datetime.now().strftime("%Y-%m-%d"),
+                        "salary": "Competitive",
+                        "experience": "Fresher / 0-2 yrs",
+                        "job_type": "Full-time",
+                        "job_url": link,
+                        "source": "We Work Remotely",
+                        "recruiter_name": "N/A",
+                        "recruiter_linkedin": "N/A",
+                        "company_website": "N/A",
+                        "description": desc
+                    })
+        except Exception as e:
+            print(f"[⚠️ WWR] {e}")
+
+        # Source 2: RemoteOK API
         try:
             url = "https://remoteok.com/api"
             resp = self.session.get(url, timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
-                for item in data[1:30]:  # Skip first legal element
+                for item in data[1:30]:
                     title = item.get("position", "")
-                    tags = [t.lower() for t in item.get("tags", [])]
                     loc = item.get("location", "Remote")
-                    # Check if India eligible or global remote
                     if "india" in loc.lower() or "worldwide" in loc.lower() or not loc or "anywhere" in loc.lower():
                         jobs.append({
                             "company": item.get("company", "Tech Co"),
@@ -107,7 +252,7 @@ class JobScraperAggregator:
         except Exception as e:
             print(f"[⚠️ RemoteOK] {e}")
 
-        # Source 2: Jobicy API (Free remote tech jobs)
+        # Source 3: Jobicy API
         try:
             url = "https://jobicy.com/api/v2/remote-jobs?count=25&geo=india"
             resp = self.session.get(url, timeout=15)
@@ -133,7 +278,7 @@ class JobScraperAggregator:
         except Exception as e:
             print(f"[⚠️ Jobicy] {e}")
 
-        # Source 3: Remotive Free API
+        # Source 4: Remotive API
         try:
             url = "https://remotive.com/api/remote-jobs?limit=50"
             resp = self.session.get(url, timeout=15)
@@ -150,7 +295,7 @@ class JobScraperAggregator:
                             "posted_date": item.get("publication_date", "Date not verified")[:10] if item.get("publication_date") else "Date not verified",
                             "salary": item.get("salary") or "N/A",
                             "experience": "Fresher / 0-2 yrs",
-                            "job_type": item.get("job_type", "Full-time").title(),
+                            "job_type": item.get("job_type", "Full-time").title() if isinstance(item.get("job_type"), str) else "Full-time",
                             "job_url": item.get("url", ""),
                             "source": "Remotive",
                             "recruiter_name": "N/A",
@@ -161,53 +306,117 @@ class JobScraperAggregator:
         except Exception as e:
             print(f"[⚠️ Remotive] {e}")
 
-        # Source 4: Arbeitnow Free API
+        # Source 5: Himalayas Remote Jobs API
         try:
-            url = "https://www.arbeitnow.com/api/job-board-api"
+            url = "https://himalayas.app/jobs/api?limit=30"
             resp = self.session.get(url, timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
-                for item in data.get("data", [])[:30]:
-                    if item.get("remote", False):
+                for item in data.get("jobs", []):
+                    loc_rest = [l.lower() for l in item.get("locationRestrictions", [])]
+                    if not loc_rest or any(c in loc_rest for c in ["worldwide", "india", "apac", "any"]):
                         jobs.append({
-                            "company": item.get("company_name", "Tech Co"),
-                            "title": item.get("title", ""),
-                            "location": item.get("location", "Remote"),
+                            "company": item.get("companyName", "Tech Co"),
+                            "title": item.get("title", "Developer"),
+                            "location": "Remote (India Eligible)",
                             "work_mode": "Remote",
-                            "posted_date": datetime.fromtimestamp(item.get("created_at", time.time())).strftime("%Y-%m-%d"),
-                            "salary": "N/A",
-                            "experience": "0-2 yrs",
+                            "posted_date": datetime.fromtimestamp(item.get("pubDate", time.time())).strftime("%Y-%m-%d") if isinstance(item.get("pubDate"), (int, float)) else datetime.now().strftime("%Y-%m-%d"),
+                            "salary": f"${item.get('minSalary', '')} - ${item.get('maxSalary', '')}" if item.get("minSalary") else "N/A",
+                            "experience": item.get("seniority", "Fresher / 0-2 yrs"),
                             "job_type": "Full-time",
-                            "job_url": item.get("url", ""),
-                            "source": "Arbeitnow",
+                            "job_url": item.get("applicationUrl") or f"https://himalayas.app/jobs/{item.get('slug', '')}",
+                            "source": "Himalayas",
                             "recruiter_name": "N/A",
                             "recruiter_linkedin": "N/A",
                             "company_website": "N/A",
                             "description": item.get("description", "")[:800]
                         })
         except Exception as e:
-            print(f"[⚠️ Arbeitnow] {e}")
+            print(f"[⚠️ Himalayas] {e}")
 
         return jobs
 
     def _normalize_apify_item(self, item: Dict[str, Any], source: str) -> Dict[str, Any]:
         """Maps raw Apify output to standardized job dictionary."""
+        company = (
+            item.get("companyName") or
+            item.get("company") or
+            item.get("company_name") or
+            "Hiring Employer"
+        )
+        company = company.strip() if isinstance(company, str) else "Hiring Employer"
+
+        title = (
+            item.get("positionName") or
+            item.get("title") or
+            item.get("jobTitle") or
+            item.get("position") or
+            "Software Engineer"
+        )
+        title = title.strip() if isinstance(title, str) else "Software Engineer"
+
+        loc = (
+            item.get("formattedLocation") or
+            item.get("location") or
+            item.get("jobGeo") or
+            "Bengaluru, Karnataka, India"
+        )
+        loc = loc.strip() if isinstance(loc, str) else "Bengaluru, Karnataka, India"
+
+        apply_url = (
+            item.get("externalApplyLink") or
+            item.get("url") or
+            item.get("jobUrl") or
+            item.get("link") or
+            ""
+        )
+        apply_url = apply_url.strip() if isinstance(apply_url, str) else ""
+
+        salary = (
+            item.get("salary") or
+            item.get("salaryText") or
+            item.get("formattedSalary") or
+            "N/A"
+        )
+        salary = salary.strip() if isinstance(salary, str) else "N/A"
+
+        posted_date = (
+            item.get("postedAt") or
+            item.get("postedTime") or
+            item.get("postedDate") or
+            item.get("pubDate") or
+            datetime.now().strftime("%Y-%m-%d")
+        )
+        if isinstance(posted_date, str) and len(posted_date) > 10:
+            posted_date = posted_date[:10]
+
+        job_type_raw = item.get("employmentType") or item.get("jobType") or "Full-time"
+        job_type = ", ".join(job_type_raw) if isinstance(job_type_raw, list) else str(job_type_raw)
+
         return {
-            "company": item.get("companyName") or item.get("company") or "Tech Company",
-            "title": item.get("title") or item.get("jobTitle") or item.get("position") or "Software Engineer",
-            "location": item.get("location") or "Bengaluru / Remote",
-            "work_mode": "Remote" if "remote" in str(item.get("location", "")).lower() else "Hybrid / On-site",
-            "posted_date": item.get("postedTime") or item.get("postedDate") or datetime.now().strftime("%Y-%m-%d"),
-            "salary": item.get("salary") or item.get("salaryText") or "N/A",
+            "company": company,
+            "title": title,
+            "location": loc,
+            "work_mode": "Remote" if "remote" in loc.lower() or "wfh" in loc.lower() else "Hybrid / On-site",
+            "posted_date": posted_date,
+            "salary": salary,
             "experience": item.get("experience") or item.get("experienceLevel") or "Fresher / 0-2 yrs",
-            "job_type": item.get("employmentType") or item.get("jobType") or "Full-time",
-            "job_url": item.get("jobUrl") or item.get("url") or item.get("link") or "",
+            "job_type": job_type,
+            "job_url": apply_url,
             "source": source,
             "recruiter_name": item.get("recruiterName") or item.get("authorName") or "N/A",
             "recruiter_linkedin": item.get("recruiterProfile") or item.get("authorProfile") or "N/A",
             "company_website": item.get("companyWebsite") or item.get("companyUrl") or "N/A",
-            "description": item.get("description") or item.get("text") or ""
+            "description": item.get("description") or item.get("descriptionHTML") or item.get("text") or ""
         }
+
+    def _extract_company_from_title(self, title: str) -> str:
+        if " at " in title:
+            return title.split(" at ")[-1].split(" hiring ")[0].strip()
+        elif " - " in title:
+            parts = title.split(" - ")
+            return parts[1].strip() if len(parts) > 1 else parts[0].strip()
+        return "Tech Employer"
 
     def _format_epoch(self, epoch_time: Any) -> str:
         if not epoch_time:
@@ -223,7 +432,7 @@ class JobScraperAggregator:
         seen = set()
         deduped = []
         for j in jobs:
-            key = (j.get("company", "").strip().lower(), j.get("title", "").strip().lower())
+            key = (str(j.get("company", "")).strip().lower(), str(j.get("title", "")).strip().lower())
             if key not in seen and j.get("title"):
                 seen.add(key)
                 deduped.append(j)

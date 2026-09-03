@@ -42,13 +42,15 @@ class AppConfig:
 
         # WhatsApp
         self.whatsapp_enabled = os.getenv("WHATSAPP_ENABLED", "false").lower() == "true"
-        self.whatsapp_provider = os.getenv("WHATSAPP_PROVIDER", "callmebot").lower()
+        self.whatsapp_provider = os.getenv("WHATSAPP_PROVIDER", "green_api").lower()
         self.callmebot_phone = os.getenv("CALLMEBOT_PHONE", "")
         self.callmebot_api_key = os.getenv("CALLMEBOT_API_KEY", "")
         self.twilio_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
         self.twilio_token = os.getenv("TWILIO_AUTH_TOKEN", "")
         self.twilio_from = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
         self.twilio_to = os.getenv("TWILIO_WHATSAPP_TO", "")
+        self.green_instance_id = os.getenv("GREEN_API_INSTANCE_ID", "").strip()
+        self.green_api_token = os.getenv("GREEN_API_TOKEN", "").strip()
 
         # Telegram (100% Free & Unlimited Mobile Alerts + Direct File Attachment)
         self.telegram_enabled = os.getenv("TELEGRAM_ENABLED", "false").lower() == "true"
@@ -74,10 +76,11 @@ class AppConfig:
         self.target_daily_jobs = int(os.getenv("TARGET_DAILY_JOBS", "25"))
         self.min_match_score = float(os.getenv("MIN_MATCH_SCORE", "70.0"))
 
-        # Paths
+        # Paths & Database
         self.reports_dir = BASE_DIR / "reports"
         self.reports_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = BASE_DIR / "jobs_history.db"
+        self.database_url = os.getenv("DATABASE_URL", "").strip()
 
     def _load_yaml(self) -> Dict[str, Any]:
         if self.yaml_path.exists():
