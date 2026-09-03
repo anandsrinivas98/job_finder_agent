@@ -112,7 +112,7 @@ class ExcelReportGenerator:
             cell = ws.cell(row=1, column=col_idx)
             cell.fill = self.header_fill
             cell.font = self.header_font
-            cell.alignment = Alignment(horizontal="center" if col_idx in [1, 5, 6, 7, 10, 15] else "left", vertical="center")
+            cell.alignment = Alignment(horizontal="center" if col_idx in [1, 5, 6, 7, 10, 16] else "left", vertical="center")
             cell.border = self.border_thin
 
         ws.row_dimensions[1].height = 28
