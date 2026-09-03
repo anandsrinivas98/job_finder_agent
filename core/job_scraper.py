@@ -34,25 +34,118 @@ class JobScraperAggregator:
         """Collects listings across ALL configured sources."""
         all_jobs: List[Dict[str, Any]] = []
 
-        # 1. Apify Search Engine (Indeed India, Google Jobs, LinkedIn, Naukri)
+        # 1. Primary Engine: Open-Source JobSpy (LinkedIn, Indeed India, Glassdoor, Google Jobs)
+        print("[🚀 JobScraper] Ingesting live opportunities via Open-Source JobSpy (LinkedIn, Indeed, Glassdoor, Google Jobs)...")
+        jobspy_jobs = self._fetch_jobspy_jobs(target_roles, locations)
+        print(f"[✅ JobScraper] Retrieved {len(jobspy_jobs)} live jobs from JobSpy Open-Source Engine.")
+        all_jobs.extend(jobspy_jobs)
+
+        # 2. Apify Search Engine (Optional supplemental actor search if token provided)
         if self.apify_token:
-            print("[🔍 JobScraper] Apify Token active. Aggregating from Apify multi-board actors...")
+            print("[🔍 JobScraper] Apify Token active. Aggregating supplemental listings from Apify...")
             apify_jobs = self._fetch_apify_jobs(target_roles, locations)
             print(f"[✅ JobScraper] Retrieved {len(apify_jobs)} jobs from Apify Actors.")
             all_jobs.extend(apify_jobs)
-        else:
-            print("[ℹ️ JobScraper] No Apify token set. Querying free open tech sources...")
 
-        # 2. Remote Tech & Startup Boards (RemoteOK, Remotive, Jobicy, Himalayas, WeWorkRemotely, YC, Arbeitnow)
+        # 3. Remote Tech & Startup Boards (RemoteOK, Remotive, Jobicy, Himalayas, WeWorkRemotely, YC, Arbeitnow)
         print("[🌐 JobScraper] Querying Tech & Startup boards (YC, Himalayas, WWR, RemoteOK, Remotive, Jobicy, GitHub)...")
         free_jobs = self._fetch_tech_boards(target_roles)
         print(f"[✅ JobScraper] Retrieved {len(free_jobs)} jobs from Tech & Startup job boards.")
         all_jobs.extend(free_jobs)
 
-        # 3. Deduplicate across all sources
+        # 4. Deduplicate across all sources
         unique_jobs = self._deduplicate_raw(all_jobs)
         print(f"[📊 JobScraper] Total unique aggregated listings across all boards: {len(unique_jobs)}")
         return unique_jobs
+
+    def _fetch_jobspy_jobs(self, target_roles: List[str], locations: List[str]) -> List[Dict[str, Any]]:
+        """Scrapes live postings directly from LinkedIn, Indeed, Glassdoor, and Google Jobs using JobSpy."""
+        jobs: List[Dict[str, Any]] = []
+        try:
+            from jobspy import scrape_jobs
+        except ImportError:
+            print("[⚠️ JobScraper] 'python-jobspy' not installed. Run: pip install python-jobspy")
+            return jobs
+
+        import logging
+        logging.getLogger("jobspy").setLevel(logging.CRITICAL)
+
+        search_configs = [
+            {"search_term": "Python Developer", "location": "Bengaluru, India"},
+            {"search_term": "Software Engineer Fresher", "location": "Bengaluru, India"},
+            {"search_term": "AI Engineer", "location": "India"},
+            {"search_term": "FastAPI Full Stack Developer", "location": "India"},
+            {"search_term": "Junior Developer", "location": "Bengaluru, India"}
+        ]
+
+        for config in search_configs:
+            term = config["search_term"]
+            loc = config["location"]
+            try:
+                df = scrape_jobs(
+                    site_name=["indeed", "linkedin", "google", "zip_recruiter"],
+                    search_term=term,
+                    location=loc,
+                    results_wanted=15,
+                    country_indeed="india",
+                    hours_old=96
+                )
+                if df is not None and not df.empty:
+                    records = df.to_dict(orient="records")
+                    for r in records:
+                        norm = self._normalize_jobspy_record(r)
+                        if norm:
+                            jobs.append(norm)
+            except Exception as e:
+                # Non-blocking graceful error logging per query
+                print(f"[⚠️ JobSpy Notice] Query '{term} in {loc}' note: {e}")
+
+        return jobs
+
+    def _normalize_jobspy_record(self, r: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Converts raw JobSpy dataframe dictionary into standardized Job entity."""
+        title = str(r.get("title") or "").strip()
+        company = str(r.get("company") or "").strip()
+        job_url = str(r.get("job_url_direct") or r.get("job_url") or "").strip()
+
+        if not title or not company:
+            return None
+
+        site = str(r.get("site") or "JobBoard").title()
+        loc = str(r.get("location") or "Bengaluru, India").strip()
+        is_remote = bool(r.get("is_remote", False)) or "remote" in loc.lower()
+        desc = str(r.get("description") or "").strip()
+        date_posted = str(r.get("date_posted") or "Recently posted").strip()
+
+        # Format salary if present
+        min_sal = r.get("min_amount")
+        max_sal = r.get("max_amount")
+        currency = str(r.get("currency") or "INR")
+        salary = "N/A"
+        if min_sal and max_sal:
+            salary = f"{currency} {min_sal:,.0f} - {max_sal:,.0f}"
+        elif min_sal:
+            salary = f"{currency} {min_sal:,.0f}+"
+
+        # Determine job type
+        job_type = str(r.get("job_type") or "Full-time")
+
+        return {
+            "company": company,
+            "title": title,
+            "location": loc,
+            "work_mode": "Remote" if is_remote else "On-site / Hybrid",
+            "posted_date": date_posted,
+            "salary": salary,
+            "experience": "Fresher / 0-2 yrs",
+            "job_type": job_type,
+            "job_url": job_url,
+            "source": f"{site} (JobSpy Direct)",
+            "description": desc[:3000],
+            "recruiter_name": "N/A",
+            "recruiter_linkedin": "N/A",
+            "company_website": "N/A"
+        }
 
     def _fetch_apify_jobs(self, target_roles: List[str], locations: List[str]) -> List[Dict[str, Any]]:
         """Queries Apify actors for Indian job boards (Indeed, Google Jobs, LinkedIn, Naukri)."""
