@@ -83,7 +83,7 @@ class JobScraperAggregator:
             loc = config["location"]
             try:
                 df = scrape_jobs(
-                    site_name=["indeed", "linkedin", "google", "zip_recruiter"],
+                    site_name=["indeed", "linkedin", "google"],
                     search_term=term,
                     location=loc,
                     results_wanted=15,
@@ -106,10 +106,20 @@ class JobScraperAggregator:
         """Converts raw JobSpy dataframe dictionary into standardized Job entity."""
         title = str(r.get("title") or "").strip()
         company = str(r.get("company") or "").strip()
-        job_url = str(r.get("job_url_direct") or r.get("job_url") or "").strip()
 
-        if not title or not company:
+        if not title or not company or title.lower() == "none" or company.lower() == "none":
             return None
+
+        # Clean apply URL (LinkedIn / Indeed / Google Jobs)
+        raw_url = r.get("job_url_direct") or r.get("job_url") or ""
+        if not raw_url or str(raw_url).strip().lower() in ["none", "nan", ""]:
+            raw_url = r.get("job_url") or ""
+
+        job_url = str(raw_url).strip()
+        if not job_url or job_url.lower() in ["none", "nan", ""]:
+            import urllib.parse
+            q = urllib.parse.quote(f"{title} {company}")
+            job_url = f"https://www.linkedin.com/jobs/search/?keywords={q}"
 
         site = str(r.get("site") or "JobBoard").title()
         loc = str(r.get("location") or "Bengaluru, India").strip()
@@ -122,13 +132,31 @@ class JobScraperAggregator:
         max_sal = r.get("max_amount")
         currency = str(r.get("currency") or "INR")
         salary = "N/A"
-        if min_sal and max_sal:
-            salary = f"{currency} {min_sal:,.0f} - {max_sal:,.0f}"
-        elif min_sal:
-            salary = f"{currency} {min_sal:,.0f}+"
+        try:
+            if min_sal and max_sal and str(min_sal) != "nan":
+                salary = f"{currency} {float(min_sal):,.0f} - {float(max_sal):,.0f}"
+            elif min_sal and str(min_sal) != "nan":
+                salary = f"{currency} {float(min_sal):,.0f}+"
+        except Exception:
+            salary = "N/A"
 
-        # Determine job type
-        job_type = str(r.get("job_type") or "Full-time")
+        # Determine and normalize job type (Full-time, Internship, Contract, Part-time)
+        raw_type = r.get("job_type")
+        if isinstance(raw_type, list) and raw_type:
+            job_type = ", ".join(str(t).title() for t in raw_type if t)
+        elif raw_type and str(raw_type).strip().lower() not in ["none", "nan", ""]:
+            job_type = str(raw_type).title()
+        else:
+            # Smart inference from title & description
+            text = f"{title} {desc}".lower()
+            if any(k in text for k in ["intern", "internship", "trainee"]):
+                job_type = "Internship"
+            elif any(k in text for k in ["contract", "freelance", "contractor"]):
+                job_type = "Contract"
+            elif any(k in text for k in ["part-time", "part time"]):
+                job_type = "Part-time"
+            else:
+                job_type = "Full-time"
 
         return {
             "company": company,
@@ -409,33 +437,75 @@ class JobScraperAggregator:
         except Exception as e:
             print(f"[⚠️ Remotive] {e}")
 
-        # Source 5: Himalayas Remote Jobs API
+        # Source 6: Arbeitnow Tech Jobs API
         try:
-            url = "https://himalayas.app/jobs/api?limit=30"
+            url = "https://www.arbeitnow.com/api/job-board-api"
             resp = self.session.get(url, timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
-                for item in data.get("jobs", []):
-                    loc_rest = [l.lower() for l in item.get("locationRestrictions", [])]
-                    if not loc_rest or any(c in loc_rest for c in ["worldwide", "india", "apac", "any"]):
+                for item in data.get("data", [])[:30]:
+                    tags = [t.lower() for t in item.get("tags", [])]
+                    title = item.get("title", "")
+                    if any(t in " ".join(tags) + " " + title.lower() for t in ["python", "developer", "engineer", "software", "ai", "react", "backend", "full stack"]):
                         jobs.append({
-                            "company": item.get("companyName", "Tech Co"),
-                            "title": item.get("title", "Developer"),
-                            "location": "Remote (India Eligible)",
-                            "work_mode": "Remote",
-                            "posted_date": datetime.fromtimestamp(item.get("pubDate", time.time())).strftime("%Y-%m-%d") if isinstance(item.get("pubDate"), (int, float)) else datetime.now().strftime("%Y-%m-%d"),
-                            "salary": f"${item.get('minSalary', '')} - ${item.get('maxSalary', '')}" if item.get("minSalary") else "N/A",
-                            "experience": item.get("seniority", "Fresher / 0-2 yrs"),
+                            "company": item.get("company_name", "Tech Co"),
+                            "title": title,
+                            "location": item.get("location", "Remote"),
+                            "work_mode": "Remote" if item.get("remote") else "Hybrid / On-site",
+                            "posted_date": self._format_epoch(item.get("created_at")),
+                            "salary": "Competitive",
+                            "experience": "Fresher / 0-2 yrs",
                             "job_type": "Full-time",
-                            "job_url": item.get("applicationUrl") or f"https://himalayas.app/jobs/{item.get('slug', '')}",
-                            "source": "Himalayas",
+                            "job_url": item.get("url", ""),
+                            "source": "Arbeitnow Tech",
                             "recruiter_name": "N/A",
                             "recruiter_linkedin": "N/A",
                             "company_website": "N/A",
-                            "description": item.get("description", "")[:800]
+                            "description": item.get("description", "")[:1000]
                         })
         except Exception as e:
-            print(f"[⚠️ Himalayas] {e}")
+            print(f"[⚠️ Arbeitnow] {e}")
+
+        # Source 7: Reddit Developer Hiring Communities (r/forhire, r/jobbit, r/remotejobs)
+        reddit_feeds = [
+            ("https://www.reddit.com/r/forhire/new/.rss", "Reddit r/forhire"),
+            ("https://www.reddit.com/r/jobbit/new/.rss", "Reddit r/jobbit"),
+            ("https://www.reddit.com/r/remotejobs/new/.rss", "Reddit r/remotejobs")
+        ]
+        for feed_url, source_name in reddit_feeds:
+            try:
+                headers = {"User-Agent": "JobHunterBot/2.0 (by /u/jobhunter_agent)"}
+                resp = self.session.get(feed_url, headers=headers, timeout=12)
+                if resp.status_code == 200:
+                    root = ET.fromstring(resp.content)
+                    for entry in root.findall(".//{http://www.w3.org/2005/Atom}entry")[:10]:
+                        title = entry.findtext("{http://www.w3.org/2005/Atom}title", "")
+                        link_elem = entry.find("{http://www.w3.org/2005/Atom}link")
+                        link = link_elem.get("href") if link_elem is not None else ""
+                        pub_date = entry.findtext("{http://www.w3.org/2005/Atom}updated", "")[:10]
+                        content = entry.findtext("{http://www.w3.org/2005/Atom}content", "")[:800]
+
+                        # Filter for [Hiring] developer posts
+                        if "[hiring]" in title.lower() and any(k in title.lower() + " " + content.lower() for k in ["python", "developer", "engineer", "software", "ai", "react", "fastapi"]):
+                            clean_title = title.replace("[Hiring]", "").replace("[HIRING]", "").strip()
+                            jobs.append({
+                                "company": self._extract_company_from_title(clean_title) or "Startup Employer",
+                                "title": clean_title[:80],
+                                "location": "Remote / Worldwide",
+                                "work_mode": "Remote",
+                                "posted_date": pub_date or datetime.now().strftime("%Y-%m-%d"),
+                                "salary": "Competitive",
+                                "experience": "Fresher / 0-2 yrs",
+                                "job_type": "Contract / Full-time",
+                                "job_url": link,
+                                "source": source_name,
+                                "recruiter_name": "N/A",
+                                "recruiter_linkedin": "N/A",
+                                "company_website": "N/A",
+                                "description": content
+                            })
+            except Exception as e:
+                pass
 
         return jobs
 
