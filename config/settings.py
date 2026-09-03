@@ -65,8 +65,9 @@ class AppConfig:
         self.discord_enabled = os.getenv("DISCORD_ENABLED", "false").lower() == "true"
         self.discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "").strip()
 
-        # Google Drive
+        # Google Drive / Cloud Folder Sync
         self.gdrive_enabled = os.getenv("GDRIVE_ENABLED", "false").lower() == "true"
+        self.gdrive_local_path = os.getenv("GDRIVE_LOCAL_PATH", "").strip()
         self.gdrive_folder_id = os.getenv("GDRIVE_FOLDER_ID", "")
         gdrive_cred = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON", "config/gdrive_service_account.json")
         self.gdrive_cred_path = (BASE_DIR / gdrive_cred) if not Path(gdrive_cred).is_absolute() else Path(gdrive_cred)

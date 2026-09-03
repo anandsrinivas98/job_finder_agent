@@ -101,8 +101,12 @@ def run_job_hunt_pipeline(dry_run: bool = False):
     # Google Drive Sync (if enabled)
     drive_link = None
     if config.gdrive_enabled and not dry_run:
-        print("\n[☁️ GDrive] Uploading report to Google Drive folder...")
-        uploader = GDriveUploader(config.gdrive_folder_id, config.gdrive_cred_path)
+        print("\n[☁️ GDrive] Syncing report to Google Drive...")
+        uploader = GDriveUploader(
+            folder_id=config.gdrive_folder_id,
+            service_account_path=config.gdrive_cred_path,
+            local_sync_path=config.gdrive_local_path
+        )
         drive_link = uploader.upload_file(excel_path)
 
     # Format Standard Notification Text

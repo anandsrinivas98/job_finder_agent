@@ -1,22 +1,38 @@
 import os
+import shutil
 from pathlib import Path
 from typing import Optional
 
 class GDriveUploader:
-    """Uploads daily Excel job hunt reports to a specific Google Drive folder."""
+    """Uploads/Syncs daily Excel reports to Google Drive.
+    Supports:
+    1. Local Google Drive / OneDrive desktop folder sync (Zero API keys needed).
+    2. Google Drive API via Service Account JSON.
+    """
 
-    def __init__(self, folder_id: str, service_account_path: Path):
-        self.folder_id = folder_id.strip()
-        self.service_account_path = Path(service_account_path)
+    def __init__(self, folder_id: str = "", service_account_path: Optional[Path] = None, local_sync_path: str = ""):
+        self.folder_id = folder_id.strip() if folder_id else ""
+        self.service_account_path = Path(service_account_path) if service_account_path else None
+        self.local_sync_path = local_sync_path.strip() if local_sync_path else ""
 
     def upload_file(self, file_path: Path) -> Optional[str]:
-        """Uploads file to Google Drive and returns shareable link if successful."""
-        if not self.folder_id:
-            print("[⚠️ GDrive Uploader] Google Drive Folder ID not configured.")
-            return None
+        """Saves file to Drive sync folder or uploads via Google Drive API."""
+        # Method 1: Local Google Drive / Cloud Sync Folder (Super fast, 0 API setup)
+        if self.local_sync_path:
+            dest_dir = Path(self.local_sync_path)
+            try:
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                dest_file = dest_dir / file_path.name
+                shutil.copy2(str(file_path), str(dest_file))
+                print(f"[☁️ Google Drive Sync] Report copied to local Drive folder: {dest_file}")
+                return str(dest_file)
+            except Exception as e:
+                print(f"[⚠️ Drive Sync Warning] Could not copy to local sync folder: {e}")
 
-        if not self.service_account_path.exists():
-            print(f"[⚠️ GDrive Uploader] Service account credentials not found at: {self.service_account_path}")
+        # Method 2: Google Drive Cloud API
+        if not self.folder_id or not self.service_account_path or not self.service_account_path.exists():
+            if not self.local_sync_path:
+                print("[ℹ️ GDrive] Drive sync not configured (Set GDRIVE_LOCAL_PATH or GDRIVE_FOLDER_ID in .env).")
             return None
 
         try:
@@ -47,12 +63,12 @@ class GDriveUploader:
             ).execute()
 
             link = file.get('webViewLink')
-            print(f"[☁️ Google Drive] Uploaded successfully! File Link: {link}")
+            print(f"[☁️ Google Drive] Uploaded successfully to Cloud Drive! Link: {link}")
             return link
 
         except ImportError:
-            print("[⚠️ GDrive Uploader] google-api-python-client not installed. Skipping Drive upload.")
+            print("[⚠️ GDrive] google-api-python-client not installed. (Run: pip install google-api-python-client)")
             return None
         except Exception as e:
-            print(f"[❌ GDrive Uploader Error] {e}")
+            print(f"[❌ GDrive Upload Error] {e}")
             return None
