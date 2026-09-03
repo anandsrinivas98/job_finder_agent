@@ -25,26 +25,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Job Hunter Pipeline
+      - name: Run Daily Job Hunter Pipeline
         env:
           APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
-          RESUME_PATH: resume/sample_resume.md
+          RESUME_PATH: ${{ secrets.RESUME_PATH || 'resume/sample_resume.md' }}
           EMAIL_ENABLED: ${{ secrets.EMAIL_ENABLED || 'true' }}
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER || 'smtp.gmail.com' }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER || 'smtp-relay.brevo.com' }}
           SMTP_PORT: ${{ secrets.SMTP_PORT || '587' }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
-          WHATSAPP_ENABLED: ${{ secrets.WHATSAPP_ENABLED || 'false' }}
-          WHATSAPP_PROVIDER: callmebot
-          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
-          CALLMEBOT_API_KEY: ${{ secrets.CALLMEBOT_API_KEY }}
-          GDRIVE_ENABLED: ${{ secrets.GDRIVE_ENABLED || 'false' }}
-          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          TELEGRAM_ENABLED: ${{ secrets.TELEGRAM_ENABLED || 'false' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NTFY_ENABLED: ${{ secrets.NTFY_ENABLED || 'false' }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MIN_MATCH_SCORE: '70'
+          TARGET_DAILY_JOBS: '50'
         run: |
           python main.py --run-now
 
       - name: Upload Daily Excel Report as GitHub Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Daily-Job-Report
