@@ -6,7 +6,6 @@
 *.json
 !settings.yaml
 !package.json
-.agent
 # Database & SQLite
 *.db
 *.sqlite
