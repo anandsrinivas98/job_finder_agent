@@ -49,7 +49,7 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
           GDRIVE_ENABLED: ${{ secrets.GDRIVE_ENABLED || 'true' }}
-          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID || '1_iBWaeS4WkDJdIjpclBEZaulgPbV5M2F' }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
           TELEGRAM_ENABLED: ${{ secrets.TELEGRAM_ENABLED || 'false' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

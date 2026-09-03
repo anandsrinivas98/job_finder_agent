@@ -47,7 +47,7 @@ class AppConfig:
         self.callmebot_api_key = os.getenv("CALLMEBOT_API_KEY", "")
         self.twilio_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
         self.twilio_token = os.getenv("TWILIO_AUTH_TOKEN", "")
-        self.twilio_from = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+        self.twilio_from = os.getenv("TWILIO_WHATSAPP_FROM", "")
         self.twilio_to = os.getenv("TWILIO_WHATSAPP_TO", "")
         self.green_instance_id = os.getenv("GREEN_API_INSTANCE_ID", "").strip()
         self.green_api_token = os.getenv("GREEN_API_TOKEN", "").strip()
@@ -66,9 +66,12 @@ class AppConfig:
         self.discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "").strip()
 
         # Google Drive / Cloud Folder Sync
-        self.gdrive_enabled = os.getenv("GDRIVE_ENABLED", "false").lower() == "true"
+        gdrive_env = os.getenv("GDRIVE_ENABLED", "true").lower().strip()
+        token_exists = (BASE_DIR / "config" / "token.json").exists()
+        folder_id = os.getenv("GDRIVE_FOLDER_ID", "").strip()
+        self.gdrive_enabled = gdrive_env == "true" or (gdrive_env != "false" and (token_exists or bool(folder_id)))
         self.gdrive_local_path = os.getenv("GDRIVE_LOCAL_PATH", "").strip()
-        self.gdrive_folder_id = os.getenv("GDRIVE_FOLDER_ID", "")
+        self.gdrive_folder_id = folder_id
         gdrive_cred = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON", "config/gdrive_service_account.json")
         self.gdrive_cred_path = (BASE_DIR / gdrive_cred) if not Path(gdrive_cred).is_absolute() else Path(gdrive_cred)
 
