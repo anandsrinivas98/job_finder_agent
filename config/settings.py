@@ -67,11 +67,9 @@ class AppConfig:
 
         # Google Drive / Cloud Folder Sync
         gdrive_env = os.getenv("GDRIVE_ENABLED", "true").lower().strip()
-        token_exists = (BASE_DIR / "config" / "token.json").exists()
-        folder_id = os.getenv("GDRIVE_FOLDER_ID", "").strip()
-        self.gdrive_enabled = gdrive_env == "true" or (gdrive_env != "false" and (token_exists or bool(folder_id)))
+        self.gdrive_enabled = gdrive_env in ["true", "1", "yes"]
         self.gdrive_local_path = os.getenv("GDRIVE_LOCAL_PATH", "").strip()
-        self.gdrive_folder_id = folder_id
+        self.gdrive_folder_id = os.getenv("GDRIVE_FOLDER_ID", "").strip()
         gdrive_cred = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON", "config/gdrive_service_account.json")
         self.gdrive_cred_path = (BASE_DIR / gdrive_cred) if not Path(gdrive_cred).is_absolute() else Path(gdrive_cred)
 

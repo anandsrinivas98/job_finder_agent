@@ -30,12 +30,7 @@ jobs:
           GDRIVE_TOKEN_JSON: ${{ secrets.GDRIVE_TOKEN_JSON }}
         run: |
           mkdir -p config
-          if [ -n "$GDRIVE_TOKEN_JSON" ]; then
-            echo "$GDRIVE_TOKEN_JSON" > config/token.json
-            echo "Google Drive token configured successfully."
-          else
-            echo "GDRIVE_TOKEN_JSON secret is empty or not set."
-          fi
+          python -c "import os, sys; token = os.environ.get('GDRIVE_TOKEN_JSON', '').strip(); (open('config/token.json', 'w', encoding='utf-8').write(token), print('[+] Google Drive token written to config/token.json')) if token else print('[-] GDRIVE_TOKEN_JSON secret is empty or not set in GitHub Secrets.')"
 
       - name: Run Daily Job Hunter Pipeline
         env:
