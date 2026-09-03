@@ -108,6 +108,8 @@ def run_job_hunt_pipeline(dry_run: bool = False):
             local_sync_path=config.gdrive_local_path
         )
         drive_link = uploader.upload_file(excel_path)
+    elif not dry_run:
+        print(f"\n[ℹ️ GDrive] Google Drive sync skipped (gdrive_enabled={config.gdrive_enabled}, folder_id={config.gdrive_folder_id or 'NOT_SET'}).")
 
     # Format Standard Notification Text
     notification_msg = (

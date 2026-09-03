@@ -33,12 +33,6 @@ class GDriveUploader:
             except Exception as e:
                 print(f"[⚠️ Drive Sync Warning] Could not copy to local sync folder: {e}")
 
-        # Method 2: Google Drive API (OAuth2 or Service Account)
-        if not self.folder_id:
-            if not self.local_sync_path:
-                print("[ℹ️ GDrive] Drive sync not configured in .env.")
-            return None
-
         try:
             from googleapiclient.discovery import build
             from googleapiclient.http import MediaFileUpload
@@ -69,7 +63,7 @@ class GDriveUploader:
                 )
 
             if not creds:
-                print("[⚠️ GDrive] No valid Google Drive credentials found in config/.")
+                print("[⚠️ GDrive] No valid Google Drive credentials or token found in config/.")
                 return None
 
             if hasattr(creds, "expired") and creds.expired and hasattr(creds, "refresh_token") and creds.refresh_token:
@@ -77,10 +71,10 @@ class GDriveUploader:
 
             service = build('drive', 'v3', credentials=creds)
 
-            file_metadata = {
-                'name': file_path.name,
-                'parents': [self.folder_id]
-            }
+            file_metadata = {'name': file_path.name}
+            if self.folder_id:
+                file_metadata['parents'] = [self.folder_id]
+
             media = MediaFileUpload(
                 str(file_path),
                 mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
