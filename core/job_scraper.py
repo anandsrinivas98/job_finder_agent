@@ -6,6 +6,9 @@ import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from urllib3.util import Retry
+from requests.adapters import HTTPAdapter
+
 class JobScraperAggregator:
     """Multi-source job aggregator querying:
     - Apify Actors: Indeed, LinkedIn, Naukri, Google Jobs, Internshala, Wellfound
@@ -16,6 +19,13 @@ class JobScraperAggregator:
     def __init__(self, apify_token: str = ""):
         self.apify_token = apify_token.strip()
         self.session = requests.Session()
+        
+        # Configure automatic retries with exponential backoff for network/DNS resilience
+        retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+        adapter = HTTPAdapter(max_retries=retries)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         })
