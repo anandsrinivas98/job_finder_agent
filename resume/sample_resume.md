@@ -2,58 +2,79 @@
 
 ## Personal Information
 - **Name:** Srinivas A
-- **Contact:** anandsrinivas98@gmail.com
-- **Target Roles:** Python Developer, Full Stack Developer, AI Engineer, Software Engineer Fresher, SDE-1
-- **Preferred Locations:** Bengaluru, Remote (India)
-- **Target Experience Level:** Fresher / 0–2 Years
+- **Contact:** anandsrinivas98@gmail.com | [linkedin.com/in/srinivasa98](https://linkedin.com/in/srinivasa98) | [github.com/anandsrinivas98](https://github.com/anandsrinivas98)
+- **Target Roles:** Software Engineer, Full-Stack Developer, AI/ML Engineer, Python Developer, Junior Developer, SDE-1
+- **Preferred Locations:** Bengaluru, Karnataka, India / Remote (India & Worldwide)
+- **Target Experience Level:** Fresher / Entry Level / 0–2 Years
 
 ---
 
 ## Education
-- **B.Tech / B.E. in Computer Science and Engineering** (2020 – 2024)
-  - CGPA: 8.5 / 10.0
-  - Coursework: Data Structures & Algorithms, Database Management Systems, Operating Systems, Machine Learning, Computer Networks
+- **B.E. in Information Science and Engineering** (Sep 2023 – Present)
+  - Sri Sairam College of Engineering, Bengaluru
+  - Current CGPA: 7.9 / 10.0
+- **Higher Secondary Education (PCMCs)** (Jun 2021 – Jun 2023)
+  - Sree Saraswathi Vidhyalaya Matriculation Hr. Sec. School, Bagalur
 
 ---
 
-## Core Skills & Tech Stack
+## Work Experience
+- **Full Stack Intern** — *Surviva Technologies* (Jul 2025 – Sep 2025 | Remote)
+  - Performed comprehensive unit testing on the company's SaaS application to improve reliability and catch regressions.
+  - Developed and refined several interactive pages and components within the production SaaS frontend.
+  - Gained hands-on exposure across the full stack, integrating modern developer workflows and REST APIs.
+
+---
+
+## Technical Skills
 
 ### Languages & Frameworks
-- **Languages:** Python, JavaScript, TypeScript, SQL, C++, HTML5, CSS3
-- **Backend & APIs:** FastAPI, Flask, Django, Node.js, Express.js, RESTful APIs, GraphQL
-- **Frontend:** React.js, Next.js, Tailwind CSS, Redux Toolkit
-- **Databases:** PostgreSQL, MongoDB, MySQL, Redis, Pinecone, ChromaDB, SQLite
+- **Languages:** Python, JavaScript, TypeScript, SQL
+- **Backend & APIs:** FastAPI, Node.js, SQLAlchemy, REST APIs, Microservices, Flask
+- **Frontend:** React, Next.js 14, Tailwind CSS, Framer Motion, HTML5, CSS3
 
 ### AI / Machine Learning / GenAI
-- **GenAI & LLMs:** OpenAI API, LangChain, LlamaIndex, Retrieval-Augmented Generation (RAG), Prompt Engineering, Fine-tuning basics
-- **ML / Data Science:** PyTorch, TensorFlow, Scikit-learn, Pandas, NumPy, Hugging Face Transformers
-- **NLP & Vision:** NLTK, spaCy, OpenCV
+- **GenAI & LLMs:** LangChain, Retrieval-Augmented Generation (RAG), HuggingFace Transformers, Prompt Engineering
+- **ML / Deep Learning:** TensorFlow, Scikit-learn, Random Forest, Model Evaluation
+- **NLP & Text Analytics:** spaCy, NLTK, Sentiment Analysis, Keyword Extraction
 
-### Testing & QA
-- **Testing Tools:** PyTest, Selenium WebDriver, Postman, Jest, Cypress, Playwright, Manual Testing, API Automation
+### Databases & Cloud / DevOps
+- **Databases:** PostgreSQL, MySQL, SQLite, Supabase, NeonDB
+- **DevOps & Tools:** Docker, Git & GitHub, Vercel, Nginx, Linux
 
-### DevOps & Tools
-- **Cloud & DevOps:** Git, GitHub, Docker, AWS (EC2, S3, Lambda), Linux/Bash, CI/CD (GitHub Actions)
+### Testing & Quality Assurance
+- **Testing:** Unit Testing, PyTest, Regression Testing, API Verification
 
 ---
 
-## Projects
+## Featured Projects
 
-### 1. Multi-Document AI Assistant with RAG
-- Built an enterprise knowledge-base chatbot using **FastAPI**, **LangChain**, **OpenAI GPT-4**, and **ChromaDB**.
-- Implemented hybrid semantic chunking and re-ranking, boosting retrieval precision by 35%.
+### 1. AgriSense – Agricultural AI System
+*Stack: Next.js 14, Node.js, FastAPI, PostgreSQL, TensorFlow, LangChain*
+- Led development of a full-stack platform providing farmers with a central dashboard for crop planning, disease prediction, and a community forum.
+- Built an intelligent **RAG-powered chatbot** delivering accurate, data-backed farming advice from indexed agricultural manuals.
+- Integrated **TensorFlow** and **Scikit-learn** models to automate plant disease detection and yield forecasting.
+- Designed a modular microservices architecture where Python handles AI logic while Node.js manages user data and market listings.
+- GitHub: [github.com/anandsrinivas98/AGRIAPP](https://github.com/anandsrinivas98/AGRIAPP) | Live: [www.agri-sense.dev](https://www.agri-sense.dev)
 
-### 2. Full-Stack E-Commerce & Analytics Platform
-- Developed responsive web app using **React**, **Node.js**, **PostgreSQL**, and **Tailwind CSS**.
-- Created real-time analytics dashboard with sales metrics, caching frequently requested queries in **Redis**.
+### 2. OceanGuard – Ocean Hazard Reporting & Social Media Analytics Platform
+*Stack: React, Tailwind CSS, FastAPI, HuggingFace, Docker, spaCy, NLTK*
+- Built a crowdsourced hazard-reporting platform enabling citizens, coastal residents, and disaster managers to report ocean hazards using an interactive map picker and image upload.
+- Implemented social media analytics with sentiment analysis, keyword extraction, and trend analytics using **spaCy**, **NLTK**, and **HuggingFace Transformers**, displayed on animated Recharts dashboards.
+- Designed an animated, ocean-themed frontend with React, Framer Motion, and Tailwind CSS featuring real-time hazard markers and smooth transitions.
+- Architected a containerized deployment with **Docker Compose** and an Nginx reverse proxy, supporting SQLite for development and MySQL for production.
+- GitHub: [github.com/anandsrinivas98/crowdhazard](https://github.com/anandsrinivas98/crowdhazard)
 
-### 3. Automated API & UI Testing Suite
-- Designed automated testing framework using **PyTest**, **Selenium**, and **Postman** for regression testing.
-- Integrated automated smoke and regression pipelines with **GitHub Actions**.
+### 3. Smart Crop Yield Forecasting
+*Stack: Python, Flask, Random Forest, Scikit-learn, Pandas*
+- Developed a machine learning application leveraging Random Forest models to predict crop yields accurately from environmental and soil parameters.
+- Built at a National-Level Hackathon at Sandip University, Nashik.
 
 ---
 
 ## Certifications & Achievements
-- Google Cloud Certified - Associate Cloud Engineer
-- DeepLearning.AI Generative AI for Everyone
-- Hackathon Finalist - Smart India Hackathon
+- **Python Certification** — Kaggle | HackerRank
+- **Web Development** — Infosys Springboard
+- **Data Visualisation** — Forage
+- **Event Coordinator & Associate Editor** — "Engineering the Future" (ISBN: 978-93-340-5353-1)
+- **Coordinator** — Department-level tech fest "TechnoVista" (100+ participants)
