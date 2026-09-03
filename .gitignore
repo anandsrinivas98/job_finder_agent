@@ -1,0 +1,42 @@
+# Environment and Secrets
+.env
+*.env
+*.pem
+*.key
+*.json
+!settings.yaml
+!package.json
+
+# Database & SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Reports & Output
+reports/
+*.xlsx
+*.csv
+
+# Python Cache & Build Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Resumes (contain personal PII)
+resume/*.pdf
+resume/*.docx
+resume/.*_parsed.json
+
+# OS and IDE Artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

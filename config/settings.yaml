@@ -1,0 +1,145 @@
+# Search and Matching Configuration
+
+search_criteria:
+  experience_levels:
+    - "Fresher"
+    - "0-1 years"
+    - "0-2 years"
+    - "Entry level"
+    - "Junior"
+    - "Internship"
+    - "Graduate Trainee"
+  max_experience_years: 2.0
+
+  locations:
+    priority_order:
+      - "India"
+      - "Remote - India"
+      - "Remote"
+      - "Bengaluru"
+      - "Bangalore"
+      - "Chennai"
+      - "Hyderabad"
+      - "Pune"
+      - "Mumbai"
+      - "Delhi NCR"
+      - "Gurgaon"
+      - "Gurugram"
+      - "Noida"
+    allow_international_remote_if_india_eligible: true
+
+  freshness_window_days: 7
+  max_freshness_window_days: 14
+
+target_categories:
+  software_dev:
+    name: "Software / Development"
+    titles:
+      - "Software Engineer"
+      - "Software Developer"
+      - "SDE"
+      - "SDE-1"
+      - "Associate Software Engineer"
+      - "ASE"
+      - "Graduate Engineer Trainee"
+      - "GET"
+      - "Junior Software Engineer"
+      - "Backend Developer"
+      - "Full Stack Developer"
+      - "Python Developer"
+      - "React Developer"
+      - "React Native Developer"
+      - "API Developer"
+      - "Frontend Developer"
+
+  ai_ml_genai:
+    name: "AI / ML / GenAI"
+    titles:
+      - "AI Engineer"
+      - "AI/ML Engineer"
+      - "Machine Learning Engineer"
+      - "AI Intern"
+      - "ML Intern"
+      - "Generative AI Engineer"
+      - "GenAI Intern"
+      - "LLM Engineer"
+      - "NLP Engineer"
+      - "Computer Vision Engineer"
+      - "AI Developer"
+      - "Python AI Developer"
+      - "RAG Developer"
+      - "Prompt Engineer"
+
+  testing_qa:
+    name: "Testing / QA"
+    titles:
+      - "Software Test Engineer"
+      - "QA Engineer"
+      - "QA Tester"
+      - "Manual Tester"
+      - "Automation Tester"
+      - "Test Engineer"
+      - "Software Testing Intern"
+      - "QA Intern"
+      - "Quality Analyst"
+      - "Test Analyst"
+
+  analyst_entry:
+    name: "Analyst / Entry Level"
+    titles:
+      - "Business Analyst"
+      - "Data Analyst"
+      - "Technical Analyst"
+      - "Junior Analyst"
+      - "Entry-Level Analyst"
+      - "Operations Analyst"
+
+apify_actors:
+  linkedin:
+    name: "LinkedIn Jobs & Posts"
+    actor_id: "curious_coder~linkedin-post-search-scraper"
+    backup_actor_id: "epctex~linkedin-jobs-scraper"
+  naukri:
+    name: "Naukri India"
+    actor_id: "misceres~naukri-job-scraper"
+  indeed:
+    name: "Indeed Jobs"
+    actor_id: "misceres~indeed-scraper"
+    backup_actor_id: "hynekboucek~indeed-scraper"
+  internshala:
+    name: "Internshala (Internships & Freshers)"
+    actor_id: "misceres~internshala-scraper"
+  wellfound:
+    name: "Wellfound / AngelList"
+    actor_id: "curious_coder~wellfound-jobs-scraper"
+  glassdoor:
+    name: "Glassdoor Jobs"
+    actor_id: "memo23~glassdoor-job-scraper"
+  google_jobs:
+    name: "Google Jobs Search"
+    actor_id: "dan.scraper~google-jobs-scraper"
+  reddit_hiring:
+    name: "Reddit Hiring (r/forhire, r/jobbit)"
+    actor_id: "trudax~reddit-scraper"
+  x_twitter_hiring:
+    name: "X / Twitter Hiring Posts"
+    actor_id: "apidojo~tweet-scraper"
+
+free_sources:
+  - remoteok       # RemoteOK Direct API
+  - remotive       # Remotive Worldwide API
+  - himalayas      # Himalayas Tech API
+  - jobicy         # Jobicy India/Remote API
+  - arbeitnow      # Arbeitnow Free API
+  - weworkremotely # WeWorkRemotely Feeds
+
+ranking_weights:
+  skills_match: 0.40
+  tech_stack_match: 0.25
+  experience_eligibility: 0.15
+  freshness: 0.10
+  location_fit: 0.10
+
+excel_settings:
+  report_prefix: "Job_Hunt_Report"
+  output_dir: "reports"

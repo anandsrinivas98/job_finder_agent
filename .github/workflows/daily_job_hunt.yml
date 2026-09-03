@@ -1,0 +1,52 @@
+name: Daily AI Job Hunter Automation
+
+on:
+  schedule:
+    # Runs everyday at 02:30 UTC (08:00 AM IST)
+    - cron: '30 2 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI anytime
+
+jobs:
+  job-hunt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Job Hunter Pipeline
+        env:
+          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
+          RESUME_PATH: resume/sample_resume.md
+          EMAIL_ENABLED: ${{ secrets.EMAIL_ENABLED || 'true' }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER || 'smtp.gmail.com' }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT || '587' }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          WHATSAPP_ENABLED: ${{ secrets.WHATSAPP_ENABLED || 'false' }}
+          WHATSAPP_PROVIDER: callmebot
+          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          CALLMEBOT_API_KEY: ${{ secrets.CALLMEBOT_API_KEY }}
+          GDRIVE_ENABLED: ${{ secrets.GDRIVE_ENABLED || 'false' }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          python main.py --run-now
+
+      - name: Upload Daily Excel Report as GitHub Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Daily-Job-Report
+          path: reports/*.xlsx
+          retention-days: 30

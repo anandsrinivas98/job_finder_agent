@@ -1,0 +1,20 @@
+# Core dependencies
+requests>=2.31.0
+pyyaml>=6.0.1
+pydantic>=2.6.0
+python-dotenv>=1.0.1
+openpyxl>=3.1.2
+schedule>=1.2.1
+pywhatkit>=5.4
+
+# Document Parsers (for resume parsing)
+pypdf>=4.1.0
+python-docx>=1.1.0
+
+# Optional Apify SDK (can also use direct HTTP requests)
+apify-client>=1.6.0
+
+# Optional Google Drive Client
+google-api-python-client>=2.118.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
