@@ -26,12 +26,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Setup Google Drive Token in Cloud Runner
-        if: env.GDRIVE_TOKEN_JSON != ''
         env:
           GDRIVE_TOKEN_JSON: ${{ secrets.GDRIVE_TOKEN_JSON }}
         run: |
           mkdir -p config
-          echo "$GDRIVE_TOKEN_JSON" > config/token.json
+          if [ -n "$GDRIVE_TOKEN_JSON" ]; then
+            echo "$GDRIVE_TOKEN_JSON" > config/token.json
+            echo "Google Drive token configured successfully."
+          else
+            echo "GDRIVE_TOKEN_JSON secret is empty or not set."
+          fi
 
       - name: Run Daily Job Hunter Pipeline
         env:
