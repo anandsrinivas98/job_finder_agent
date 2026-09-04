@@ -74,7 +74,7 @@ class AppConfig:
         self.gdrive_cred_path = (BASE_DIR / gdrive_cred) if not Path(gdrive_cred).is_absolute() else Path(gdrive_cred)
 
         # Execution parameters
-        self.daily_run_time = os.getenv("DAILY_RUN_TIME", "08:00")
+        self.daily_run_time = os.getenv("DAILY_RUN_TIME", "07:00")
         self.target_daily_jobs = int(os.getenv("TARGET_DAILY_JOBS", "25"))
         self.min_match_score = float(os.getenv("MIN_MATCH_SCORE", "70.0"))
 

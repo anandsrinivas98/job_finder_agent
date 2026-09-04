@@ -10,17 +10,17 @@ Write-Host "Registering Daily Scheduled Task: $TaskName" -ForegroundColor Cyan
 Write-Host "Python Path: $PythonPath"
 Write-Host "Script: $ScriptPath"
 
-# Trigger: Run daily at 08:00 AM
-$Trigger = New-ScheduledTaskTrigger -Daily -At "08:00AM"
+# Trigger: Run daily at 07:00 AM
+$Trigger = New-ScheduledTaskTrigger -Daily -At "07:00AM"
 
 # Action: Run Python main.py --run-now
 $Action = New-ScheduledTaskAction -Execute $PythonPath -Argument "`"$ScriptPath`" --run-now" -WorkingDirectory $WorkingDirectory
 
-# Settings
-$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+# Settings: Start when available, stop after 2 hours
+$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 
-# Register Task
-Register-ScheduledTask -TaskName $TaskName -Trigger $Trigger -Action $Action -Settings $Settings -Description "Automated Daily AI Job Hunting Agent" -Force
+# Register Scheduled Task
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Description "Daily AI Job Hunter Autonomous Engine" -Force
 
-Write-Host "`n✅ Successfully scheduled Daily Job Hunter! It will run every morning at 08:00 AM." -ForegroundColor Green
+Write-Host "`n✅ Successfully scheduled Daily Job Hunter! It will run every morning at 07:00 AM." -ForegroundColor Green
 Write-Host "To test it immediately, run: Start-ScheduledTask -TaskName '$TaskName'" -ForegroundColor Yellow

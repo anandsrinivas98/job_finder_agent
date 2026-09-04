@@ -132,22 +132,22 @@ GDRIVE_ENABLED=true
 GDRIVE_FOLDER_ID=your_google_drive_folder_id
 
 # 5. PIPELINE SETTINGS
-DAILY_RUN_TIME=08:00
-TARGET_DAILY_JOBS=50
-MIN_MATCH_SCORE=70
+DAILY_RUN_TIME=07:00
+TARGET_DAILY_JOBS=25
+MIN_MATCH_SCORE=70.0
 ```
 
 ---
 
-## 4. Daily Automation Options
+## 4. Daily Execution Model
 
-### Option A: Local Windows Task Scheduler (08:00 AM Daily)
+### Option A: Local Windows Task Scheduler (07:00 AM Daily)
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup_windows_task.ps1
 ```
 
-### Option B: 24/7 Cloud Automation (GitHub Actions)
-The included `.github/workflows/daily_job_hunt.yml` runs every morning at **08:00 AM IST (02:30 UTC)** in the cloud with zero PC uptime needed.
+### Option B: 24/7 GitHub Actions Cloud Run (Recommended)
+The included `.github/workflows/daily_job_hunt.yml` runs every morning at **07:00 AM IST (01:30 UTC)** in the cloud with zero PC uptime needed.
 
 ---
 

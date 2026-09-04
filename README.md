@@ -82,14 +82,13 @@ python main.py --run-now
 
 ## ⏰ Daily Automation
 
-### Option A: Local Windows Task Scheduler (08:00 AM Daily)
-Run the setup script in PowerShell:
+### Option A: Local Windows Task Scheduler (07:00 AM Daily)
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup_windows_task.ps1
 ```
 
 ### Option B: 24/7 Cloud Automation (GitHub Actions)
-The included `.github/workflows/daily_job_hunt.yml` automatically executes the pipeline every morning at **08:00 AM IST** in the cloud with zero server management. Simply configure your repository secrets under **GitHub Settings > Secrets and variables > Actions**.
+The included `.github/workflows/daily_job_hunt.yml` automatically executes the pipeline every morning at **07:00 AM IST** in the cloud with zero server management. Simply configure your repository secrets under **GitHub Settings > Secrets and variables > Actions**.
 
 ---
 
