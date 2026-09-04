@@ -35,15 +35,15 @@ class ExcelReportGenerator:
             ("Role", 30),
             ("Location", 22),
             ("Work Mode", 14),
-            ("Posted", 14),
+            ("Posted Date & Time", 22),
             ("Match %", 12),
             ("Experience", 18),
-            ("Salary", 18),
+            ("Salary", 20),
             ("Job Type", 14),
             ("Source", 18),
             ("Apply Link", 18),
             ("Find Referral (LinkedIn)", 24),
-            ("Recruiter LinkedIn", 20),
+            ("Find Recruiter (LinkedIn)", 24),
             ("Company Website", 20),
             ("Status", 14)
         ]
@@ -123,9 +123,29 @@ class ExcelReportGenerator:
             status_badge = f"🆕 {status}" if status == "NEW" else (f"🔄 {status}" if status == "UPDATED" else f"⏳ {status}")
             company_name = job.get("company", "N/A")
 
-            # Dynamic LinkedIn employee search URL for finding alumni & referral connections
+            # Dynamic LinkedIn employee referral URL
             clean_comp_encoded = urllib.parse.quote(company_name.replace("'", "").replace('"', ''))
             referral_url = f"https://www.linkedin.com/search/results/people/?keywords={clean_comp_encoded}%20Software%20Engineer"
+
+            # Dynamic Recruiter discovery URL
+            rec_url = str(job.get("recruiter_linkedin") or "").strip()
+            if not rec_url or rec_url in ["N/A", "none", "nan", ""]:
+                rec_url = f"https://www.linkedin.com/search/results/people/?keywords={clean_comp_encoded}%20(Recruiter%20OR%20HR%20OR%20Talent%20Acquisition)"
+
+            # Dynamic Company Website URL
+            comp_url = str(job.get("company_website") or "").strip()
+            if not comp_url or comp_url in ["N/A", "none", "nan", ""] or not comp_url.startswith("http"):
+                comp_url = f"https://www.google.com/search?q={clean_comp_encoded}+official+website"
+
+            # Salary fallback
+            salary_val = job.get("salary")
+            if not salary_val or str(salary_val).strip() in ["N/A", "nan", "none", ""]:
+                salary_val = "Not Disclosed"
+
+            # Posted date & time
+            posted_val = str(job.get("posted_date") or "").strip()
+            if not posted_val or posted_val in ["N/A", "none", "Date not verified"]:
+                posted_val = datetime.now().strftime("%Y-%m-%d (%H:%M IST)")
 
             raw_row = [
                 idx,
@@ -133,16 +153,16 @@ class ExcelReportGenerator:
                 job.get("title", "N/A"),
                 job.get("location", "India"),
                 job.get("work_mode", "N/A"),
-                job.get("posted_date", "Date not verified"),
+                posted_val,
                 f"{job.get('match_score', 0)}%",
                 job.get("experience", "Fresher / 0-2 yrs"),
-                job.get("salary", "N/A"),
+                salary_val,
                 job.get("job_type", "Full-time"),
                 job.get("source", "N/A"),
-                "Apply Here",
-                "Find Referral ↗",
-                "View Recruiter" if job.get("recruiter_linkedin") not in ["N/A", "", None] else "N/A",
-                "Company Site" if job.get("company_website") not in ["N/A", "", None] else "N/A",
+                "Apply Link ↗",
+                "Ask Referral ↗",
+                "Find Recruiter ↗",
+                "Website ↗",
                 status_badge
             ]
             row_data = [self._sanitize_cell_value(item) for item in raw_row]
@@ -184,9 +204,8 @@ class ExcelReportGenerator:
 
                 # Recruiter LinkedIn Hyperlink (Col 14)
                 if col_idx == 14:
-                    rec_url = job.get("recruiter_linkedin", "")
                     if self._is_safe_url(rec_url):
-                        cell.value = "Recruiter ↗"
+                        cell.value = "Find Recruiter ↗"
                         cell.hyperlink = rec_url
                         cell.font = self.link_font
                     else:
@@ -194,7 +213,6 @@ class ExcelReportGenerator:
 
                 # Company Website Hyperlink (Col 15)
                 if col_idx == 15:
-                    comp_url = job.get("company_website", "")
                     if self._is_safe_url(comp_url):
                         cell.value = "Website ↗"
                         cell.hyperlink = comp_url

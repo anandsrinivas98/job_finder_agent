@@ -118,20 +118,49 @@ class JobScraperAggregator:
         loc = str(r.get("location") or "Bengaluru, India").strip()
         is_remote = bool(r.get("is_remote", False)) or "remote" in loc.lower()
         desc = str(r.get("description") or "").strip()
-        date_posted = str(r.get("date_posted") or "Recently posted").strip()
+        # Determine posted date and time
+        raw_posted = r.get("date_posted")
+        now_time_str = datetime.now().strftime("%H:%M IST")
+        if raw_posted and str(raw_posted).strip().lower() not in ["none", "nan", ""]:
+            date_posted = f"{str(raw_posted).strip()} ({now_time_str})"
+        else:
+            date_posted = f"{datetime.now().strftime('%Y-%m-%d')} ({now_time_str})"
 
-        # Format salary if present
+        # Format salary if present, or extract from description/title
         min_sal = r.get("min_amount")
         max_sal = r.get("max_amount")
+        interval = str(r.get("interval") or "").lower()
         currency = str(r.get("currency") or "INR")
-        salary = "N/A"
+        salary = ""
         try:
             if min_sal and max_sal and str(min_sal) != "nan":
-                salary = f"{currency} {float(min_sal):,.0f} - {float(max_sal):,.0f}"
+                int_suffix = f" / {interval}" if interval and interval != "none" else ""
+                salary = f"{currency} {float(min_sal):,.0f} - {float(max_sal):,.0f}{int_suffix}"
             elif min_sal and str(min_sal) != "nan":
-                salary = f"{currency} {float(min_sal):,.0f}+"
+                int_suffix = f" / {interval}" if interval and interval != "none" else ""
+                salary = f"{currency} {float(min_sal):,.0f}+{int_suffix}"
         except Exception:
-            salary = "N/A"
+            salary = ""
+
+        if not salary or salary == "N/A":
+            salary = self._extract_salary_from_text(f"{title} {desc}")
+
+        # Recruiter LinkedIn discovery URL
+        import urllib.parse
+        rec_url = str(r.get("recruiter_url") or "").strip()
+        if not rec_url or rec_url.lower() in ["none", "nan", ""]:
+            comp_encoded = urllib.parse.quote(company)
+            recruiter_linkedin = f"https://www.linkedin.com/search/results/people/?keywords={comp_encoded}%20(Recruiter%20OR%20HR%20OR%20Talent%20Acquisition)"
+        else:
+            recruiter_linkedin = rec_url
+
+        # Company Website discovery URL
+        comp_site = str(r.get("company_url_direct") or r.get("company_url") or "").strip()
+        if not comp_site or comp_site.lower() in ["none", "nan", ""] or not comp_site.startswith("http"):
+            comp_encoded = urllib.parse.quote(company)
+            company_website = f"https://www.google.com/search?q={comp_encoded}+official+website"
+        else:
+            company_website = comp_site
 
         # Determine and normalize job type (Full-time, Internship, Contract, Part-time)
         raw_type = r.get("job_type")
@@ -164,8 +193,8 @@ class JobScraperAggregator:
             "source": f"{site} (JobSpy Direct)",
             "description": desc[:3000],
             "recruiter_name": "N/A",
-            "recruiter_linkedin": "N/A",
-            "company_website": "N/A"
+            "recruiter_linkedin": recruiter_linkedin,
+            "company_website": company_website
         }
 
     def _fetch_tech_boards(self, target_roles: List[str]) -> List[Dict[str, Any]]:
@@ -377,6 +406,28 @@ class JobScraperAggregator:
         except Exception:
             return "Date not verified"
 
+    def _extract_salary_from_text(self, text: str) -> str:
+        """Extracts salary ranges (LPA, INR, USD, hourly/monthly) from job text."""
+        if not text:
+            return "Not Disclosed / Competitive"
+        import re
+        # Pattern 1: e.g. 5-10 LPA, 6 to 12 Lakhs, 3.5 - 7 LPA
+        m = re.search(r'\b(?:\d+(?:\.\d+)?)\s*(?:-|to)\s*(?:\d+(?:\.\d+)?)\s*(?:LPA|lpa|Lakhs?|lakhs?|Cr|cr)\b', text)
+        if m:
+            return f"₹ {m.group(0).strip()}"
+
+        # Pattern 2: e.g. ₹ 5,00,000 - ₹ 10,00,000 or $50,000 - $80,000
+        m = re.search(r'(?:₹|INR|Rs\.?|\$)\s*[\d,]+(?:\.\d+)?\s*(?:-|to)\s*(?:₹|INR|Rs\.?|\$)?\s*[\d,]+(?:\.\d+)?(?:\s*(?:LPA|lpa|k|K|/month|p\.m\.|/yr|per annum|per year))?', text, re.IGNORECASE)
+        if m:
+            return m.group(0).strip()
+
+        # Pattern 3: e.g. ₹ 25,000 / month, ₹30k/month
+        m = re.search(r'(?:₹|INR|Rs\.?|\$)\s*[\d,]+(?:\.\d+)?\s*(?:k|K|/month|p\.m\.|/yr|per month)', text, re.IGNORECASE)
+        if m:
+            return m.group(0).strip()
+
+        return "Not Disclosed / Competitive"
+
     def _deduplicate_raw(self, jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         seen = set()
         deduped = []
@@ -386,3 +437,4 @@ class JobScraperAggregator:
                 seen.add(key)
                 deduped.append(j)
         return deduped
+
