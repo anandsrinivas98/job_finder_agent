@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import hashlib
+import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -88,11 +89,36 @@ class JobHistoryDB:
                         status TEXT DEFAULT 'NEW',
                         first_seen TEXT NOT NULL,
                         last_seen TEXT NOT NULL,
-                        run_count INTEGER DEFAULT 1
+                        run_count INTEGER DEFAULT 1,
+                        first_delivered_as_new TEXT,
+                        last_delivered TEXT,
+                        previous_status TEXT,
+                        previous_match_score REAL,
+                        last_change_detected TEXT,
+                        match_breakdown TEXT,
+                        verification_status TEXT DEFAULT 'UNVERIFIED'
                     );
                 """)
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_job_hash ON jobs(job_hash);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON jobs(status);")
+
+                # Automated Schema Migration for existing SQLite tables
+                existing_cols = [row[1] for row in cursor.execute("PRAGMA table_info(jobs)").fetchall()]
+                v2_cols = [
+                    ("first_delivered_as_new", "TEXT"),
+                    ("last_delivered", "TEXT"),
+                    ("previous_status", "TEXT"),
+                    ("previous_match_score", "REAL"),
+                    ("last_change_detected", "TEXT"),
+                    ("match_breakdown", "TEXT"),
+                    ("verification_status", "TEXT DEFAULT 'UNVERIFIED'")
+                ]
+                for col_name, col_type in v2_cols:
+                    if col_name not in existing_cols:
+                        try:
+                            cursor.execute(f"ALTER TABLE jobs ADD COLUMN {col_name} {col_type};")
+                        except Exception:
+                            pass
 
             conn.commit()
         finally:
@@ -127,17 +153,31 @@ class JobHistoryDB:
 
             cursor.execute(f"SELECT * FROM jobs WHERE job_hash = {ph}", (job_hash,))
             existing = cursor.fetchone()
+            
+            # Ensure match_breakdown is always serialized to a JSON string for SQLite/Postgres
+            mb = job.get("match_breakdown")
+            if hasattr(mb, "to_dict"):
+                breakdown_json = json.dumps(mb.to_dict())
+            elif isinstance(mb, dict):
+                breakdown_json = json.dumps(mb)
+            elif isinstance(mb, str):
+                breakdown_json = mb
+            else:
+                breakdown_json = "{}"
+                
+            verification_status = str(job.get("verification_status", "UNVERIFIED"))
 
             if not existing:
-                # 🆕 Brand new job
+                # 🆕 Brand new job (never previously seen or delivered)
                 status = "NEW"
                 insert_sql = f"""
                     INSERT INTO jobs (
                         job_hash, company, title, location, work_mode, posted_date,
                         salary, experience, job_type, job_url, source, recruiter_name,
                         recruiter_linkedin, company_website, match_score, category,
-                        status, first_seen, last_seen, run_count
-                    ) VALUES ({', '.join([ph]*20)})
+                        status, first_seen, last_seen, run_count, first_delivered_as_new,
+                        last_delivered, match_breakdown, verification_status
+                    ) VALUES ({', '.join([ph]*24)})
                 """
                 cursor.execute(insert_sql, (
                     job_hash,
@@ -146,7 +186,7 @@ class JobHistoryDB:
                     job.get("location", "India"),
                     job.get("work_mode", "N/A"),
                     job.get("posted_date", "Date not verified"),
-                    job.get("salary", "N/A"),
+                    job.get("salary", "Not Disclosed"),
                     job.get("experience", "Fresher / 0-2 yrs"),
                     job.get("job_type", "Full-time"),
                     job.get("job_url", ""),
@@ -159,50 +199,77 @@ class JobHistoryDB:
                     status,
                     now_str,
                     now_str,
-                    1
+                    1,
+                    now_str,
+                    now_str,
+                    breakdown_json,
+                    verification_status
                 ))
             else:
-                # Existing job: check if updated or still open
-                prev_score = existing["match_score"]
+                # Existing job: distinguish meaningful UPDATED vs STILL OPEN
+                prev_score = float(existing["match_score"] or 0.0)
                 new_score = float(job.get("match_score", 0.0))
-                run_count = existing["run_count"] + 1
+                run_count = int(existing["run_count"] or 1) + 1
+                prev_salary = str(existing["salary"] or "").strip()
+                new_salary = str(job.get("salary") or "").strip()
 
-                if abs(new_score - prev_score) > 5.0 or (job.get("salary") != "N/A" and existing["salary"] == "N/A"):
+                salary_changed = (new_salary not in ["N/A", "Not Disclosed", ""] and new_salary != prev_salary)
+                score_changed = abs(new_score - prev_score) > 10.0
+                url_changed = bool(job.get("job_url") and job.get("job_url") != existing["job_url"])
+
+                if salary_changed or score_changed or url_changed:
                     status = "UPDATED"
+                    last_change = now_str
                 else:
                     status = "STILL OPEN"
+                    last_change = existing["last_change_detected"]
 
                 update_sql = f"""
                     UPDATE jobs SET
                         last_seen = {ph},
                         run_count = {ph},
                         status = {ph},
+                        previous_status = {ph},
+                        previous_match_score = {ph},
                         match_score = {ph},
-                        salary = CASE WHEN {ph} != 'N/A' THEN {ph} ELSE salary END,
-                        job_url = CASE WHEN {ph} != '' THEN {ph} ELSE job_url END
+                        last_change_detected = {ph},
+                        last_delivered = {ph},
+                        salary = CASE WHEN {ph} NOT IN ('N/A', 'Not Disclosed', '') THEN {ph} ELSE salary END,
+                        job_url = CASE WHEN {ph} != '' THEN {ph} ELSE job_url END,
+                        match_breakdown = {ph},
+                        verification_status = {ph}
                     WHERE job_hash = {ph}
                 """
                 cursor.execute(update_sql, (
                     now_str,
                     run_count,
                     status,
+                    existing["status"],
+                    prev_score,
                     new_score,
-                    job.get("salary", "N/A"),
-                    job.get("salary", "N/A"),
+                    last_change,
+                    now_str,
+                    new_salary,
+                    new_salary,
                     job.get("job_url", ""),
                     job.get("job_url", ""),
+                    breakdown_json,
+                    verification_status,
                     job_hash
                 ))
 
             conn.commit()
+
+            job_copy = dict(job)
+            job_copy["status"] = status
+            job_copy["job_hash"] = job_hash
+            job_copy["run_count"] = 1 if not existing else int(existing["run_count"] or 1) + 1
+            job_copy["first_seen"] = now_str if not existing else existing["first_seen"]
+            job_copy["last_seen"] = now_str
+            job_copy["verification_status"] = verification_status
+            return job_copy
         finally:
             conn.close()
-
-        # Return job with assigned DB status
-        job_copy = dict(job)
-        job_copy["status"] = status
-        job_copy["job_hash"] = job_hash
-        return job_copy
 
     def get_all_jobs_history(self) -> List[Dict[str, Any]]:
         """Returns all recorded jobs."""

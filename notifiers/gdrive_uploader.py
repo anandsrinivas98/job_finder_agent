@@ -127,15 +127,20 @@ class GDriveUploader:
 
             file_id = file.get('id')
 
-            # Ensure public view access so anyone with the link can open the report
-            try:
-                service.permissions().create(
-                    fileId=file_id,
-                    body={'type': 'anyone', 'role': 'reader'},
-                    supportsAllDrives=True
-                ).execute()
-            except Exception:
-                pass
+            # V2 Privacy Rule: Default to PRIVATE (Owner Only). Only grant public read if explicitly configured.
+            sharing_mode = os.getenv("DRIVE_SHARING_MODE", "PRIVATE").upper().strip()
+            if sharing_mode in ["PUBLIC", "EXPLICITLY_SHARED"]:
+                try:
+                    service.permissions().create(
+                        fileId=file_id,
+                        body={'type': 'anyone', 'role': 'reader'},
+                        supportsAllDrives=True
+                    ).execute()
+                    print(f"[☁️ Google Drive] Public sharing enabled (mode: {sharing_mode}).")
+                except Exception as e:
+                    print(f"[⚠️ Google Drive] Permission update note: {e}")
+            else:
+                print(f"[🔒 Google Drive] Report saved with PRIVATE / OWNER-ONLY permissions.")
 
             link = f"https://docs.google.com/spreadsheets/d/{file_id}/edit?usp=sharing"
             print(f"[☁️ Google Drive] Uploaded successfully to Cloud Drive! Link: {link}")

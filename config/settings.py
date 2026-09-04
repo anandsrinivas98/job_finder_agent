@@ -73,10 +73,20 @@ class AppConfig:
         gdrive_cred = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON", "config/gdrive_service_account.json")
         self.gdrive_cred_path = (BASE_DIR / gdrive_cred) if not Path(gdrive_cred).is_absolute() else Path(gdrive_cred)
 
-        # Execution parameters
-        self.daily_run_time = os.getenv("DAILY_RUN_TIME", "07:00")
-        self.target_daily_jobs = int(os.getenv("TARGET_DAILY_JOBS", "25"))
-        self.min_match_score = float(os.getenv("MIN_MATCH_SCORE", "70.0"))
+        # Execution & V2 Parameters
+        self.search_window_hours = int(os.getenv("SEARCH_WINDOW_HOURS", "96"))
+        self.freshness_priority_hours = int(os.getenv("FRESHNESS_PRIORITY_HOURS", "24"))
+        self.freshness_max_days = int(os.getenv("FRESHNESS_MAX_DAYS", "7"))
+        self.match_threshold = float(os.getenv("MATCH_THRESHOLD", os.getenv("MIN_MATCH_SCORE", "70.0")))
+        self.daily_target_min = int(os.getenv("DAILY_TARGET_MIN", "20"))
+        self.daily_target_max = int(os.getenv("DAILY_TARGET_MAX", "30"))
+        self.timezone = os.getenv("TIMEZONE", "Asia/Kolkata")
+        self.daily_run_time = os.getenv("RUN_TIME", os.getenv("DAILY_RUN_TIME", "07:00"))
+        self.drive_sharing_mode = os.getenv("DRIVE_SHARING_MODE", "PRIVATE").upper().strip()
+
+        # Backward compatibility aliases
+        self.target_daily_jobs = self.daily_target_max
+        self.min_match_score = self.match_threshold
 
         # Paths & Database
         self.reports_dir = BASE_DIR / "reports"
@@ -100,6 +110,12 @@ class AppConfig:
 
     @property
     def max_experience_years(self) -> float:
+        env_val = os.getenv("MAX_EXPERIENCE_YEARS")
+        if env_val:
+            try:
+                return float(env_val)
+            except ValueError:
+                pass
         return float(self.yaml_data.get("search_criteria", {}).get("max_experience_years", 2.0))
 
 config = AppConfig()

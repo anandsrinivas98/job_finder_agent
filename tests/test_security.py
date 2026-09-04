@@ -34,11 +34,11 @@ def test_excel_formula_injection_defense(tmp_path):
 
     company_val = ws.cell(row=2, column=2).value
     title_val = ws.cell(row=2, column=3).value
-    apply_link_val = ws.cell(row=2, column=12).value
-    apply_hyperlink = ws.cell(row=2, column=12).hyperlink
-    referral_val = ws.cell(row=2, column=13).value
-    recruiter_val = ws.cell(row=2, column=14).value
-    website_hyperlink = ws.cell(row=2, column=15).hyperlink
+    apply_link_val = ws.cell(row=2, column=13).value
+    apply_hyperlink = ws.cell(row=2, column=13).hyperlink
+    referral_val = ws.cell(row=2, column=14).value
+    recruiter_val = ws.cell(row=2, column=15).value
+    website_hyperlink = ws.cell(row=2, column=16).hyperlink
 
     # Verify formula injection triggers are escaped
     assert company_val.startswith("'=")

@@ -56,10 +56,12 @@ jobs:
         run: |
           python main.py --run-now
 
-      - name: Upload Daily Excel Report as GitHub Artifact
+      - name: Upload Daily Excel Report and Execution Logs as GitHub Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Daily-Job-Report
-          path: reports/*.xlsx
+          name: Daily-Job-Report-and-Logs
+          path: |
+            reports/*.xlsx
+            reports/logs/*.json
           retention-days: 30
