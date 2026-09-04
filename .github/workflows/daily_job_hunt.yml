@@ -2,8 +2,8 @@ name: Daily AI Job Hunter Automation
 
 on:
   schedule:
-    # Runs at 12:55 UTC (06:25 PM IST) for testing
-    - cron: '55 12 * * *'
+    # Runs at 13:20 UTC (06:50 PM IST)
+    - cron: '20 13 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI anytime
 
 jobs:
