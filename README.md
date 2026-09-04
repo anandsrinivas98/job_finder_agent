@@ -87,8 +87,8 @@ python main.py --run-now
 powershell -ExecutionPolicy Bypass -File .\setup_windows_task.ps1
 ```
 
-### Option B: 24/7 Cloud Automation (GitHub Actions)
-The included `.github/workflows/daily_job_hunt.yml` automatically executes the pipeline every morning at **07:00 AM IST** in the cloud with zero server management. Simply configure your repository secrets under **GitHub Settings > Secrets and variables > Actions**.
+### Option B: 24/7 Cloud Automation (cron-job.org + GitHub Actions)
+The workflow `.github/workflows/daily_job_hunt.yml` is triggered sharply on schedule via **cron-job.org** API (or manual trigger from the Actions tab). This eliminates duplicate executions and preserves your Brevo email quota. Configure your repository secrets under **GitHub Settings > Secrets and variables > Actions**.
 
 ---
 

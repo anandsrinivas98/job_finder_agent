@@ -141,13 +141,16 @@ MIN_MATCH_SCORE=70.0
 
 ## 4. Daily Execution Model
 
-### Option A: Local Windows Task Scheduler (07:00 AM Daily)
+### Option A: 24/7 Zero-Server Cloud Automation (cron-job.org + GitHub Actions — Recommended)
+- The pipeline runs completely serverless inside **GitHub Actions** via `.github/workflows/daily_job_hunt.yml`.
+- Triggered sharply at **07:00 AM IST** via **cron-job.org** webhook API (or manual trigger from the GitHub Actions tab).
+- **Zero duplicate runs**: Eliminates delayed crons and preserves your daily Brevo email sending limit.
+- Zero local PC uptime required.
+
+### Option B: Local Windows Task Scheduler (07:00 AM Daily)
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup_windows_task.ps1
 ```
-
-### Option B: 24/7 GitHub Actions Cloud Run (Recommended)
-The included `.github/workflows/daily_job_hunt.yml` runs every morning at **07:00 AM IST (01:30 UTC)** in the cloud with zero PC uptime needed.
 
 ---
 
