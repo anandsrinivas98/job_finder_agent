@@ -2,9 +2,11 @@ name: Daily AI Job Hunter Automation
 
 on:
   schedule:
-    # Runs at 13:20 UTC (06:50 PM IST)
-    - cron: '20 13 * * *'
-  workflow_dispatch: # Allows manual trigger from GitHub UI anytime
+    # Backup trigger: everyday at 01:30 UTC (07:00 AM IST)
+    - cron: '30 1 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI / API
+  repository_dispatch: # Allows webhook trigger from cron-job.org or external services
+    types: [daily_job_hunt]
 
 jobs:
   job-hunt:
